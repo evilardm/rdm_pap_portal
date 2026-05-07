@@ -1,0 +1,25 @@
+<div class="ta-wrapper">
+  <input
+    type="text"
+    [value]="inputValue()"
+    [placeholder]="placeholder"
+    [disabled]="disabled()"
+    [ngClass]="[inputClass, hasError ? 'error' : '']"
+    (input)="onInput($any($event.target).value)"
+    (focus)="onFocus()"
+    (blur)="onBlur()"
+  />
+
+  @if (open() && filtered().length > 0) {
+    <ul class="ta-dropdown" role="listbox">
+      @for (opt of filtered(); track opt.value) {
+        <li class="ta-option" role="option" (mousedown)="select(opt)">
+          <span class="ta-label">{{ opt.label }}</span>
+          @if (opt.sublabel) {
+            <span class="ta-sub">{{ opt.sublabel }}</span>
+          }
+        </li>
+      }
+    </ul>
+  }
+</div>

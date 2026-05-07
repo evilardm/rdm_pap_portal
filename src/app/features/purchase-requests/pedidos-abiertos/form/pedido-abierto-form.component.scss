@@ -1,0 +1,66 @@
+:host {
+  display: block;
+  padding: 28px 32px;
+  max-width: 900px;
+  background: #ffffff;
+}
+
+.create-form { display: flex; flex-direction: column; gap: 20px; }
+
+.form-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 24px;
+}
+
+.card-title { font-size: 15px; font-weight: 500; color: #111827; margin: 0 0 20px; }
+
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.col-full { grid-column: 1 / -1; }
+
+.form-field { display: flex; flex-direction: column; gap: 6px; }
+
+.field-label { font-size: 13px; font-weight: 500; color: #374151; }
+.required { color: #ef4444; }
+
+.field-input {
+  background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px;
+  padding: 10px 14px; font-size: 13px; color: #111827; outline: none;
+  transition: border-color 0.15s; font-family: inherit;
+  &::placeholder { color: #9ca3af; }
+  &:focus { border-color: #3ecf8e; background: #ffffff; box-shadow: 0 0 0 3px rgba(62,207,142,0.08); }
+  &.error { border-color: rgba(239, 68, 68, 0.5); }
+}
+
+.field-textarea { resize: vertical; min-height: 80px; }
+.field-select { cursor: pointer; option { background: #ffffff; } }
+
+.field-error { font-size: 12px; color: #ef4444; }
+
+.form-actions { display: flex; justify-content: flex-end; gap: 10px; }
+
+.btn-ghost {
+  display: inline-flex; align-items: center; background: none; border: 1px solid #e5e7eb;
+  border-radius: 7px; padding: 9px 16px; font-size: 13px; color: #6b7280; cursor: pointer;
+  text-decoration: none; transition: all 0.15s;
+  &:hover { border-color: #d1d5db; color: #111827; background: #f9fafb; }
+}
+
+.btn-draft {
+  background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 7px; padding: 10px 18px;
+  font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; text-decoration: none;
+  transition: all 0.15s; display: inline-flex; align-items: center;
+  &:hover { border-color: #d1d5db; background: #f3f4f6; color: #111827; }
+}
+
+.btn-submit {
+  display: inline-flex; align-items: center; gap: 7px; background: #3ecf8e; border: none;
+  border-radius: 7px; padding: 10px 20px; font-size: 13px; font-weight: 500; color: #ffffff;
+  cursor: pointer; transition: background 0.15s;
+  &:hover:not(:disabled) { background: #2dbe7e; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { animation: spin 0.8s linear infinite; }

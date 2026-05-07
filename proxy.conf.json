@@ -1,0 +1,8 @@
+{
+  "/api": {
+    "target": "https://iodize-afoot-stumbling.ngrok-free.dev",
+    "secure": false,
+    "changeOrigin": true,
+    "logLevel": "info"
+  }
+}

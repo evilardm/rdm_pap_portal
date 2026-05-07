@@ -1,0 +1,83 @@
+<app-header [title]="title" subtitle="Datos Maestros / Artículos" />
+
+<div class="form-card">
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+
+    <div class="form-section">
+      <h3 class="section-title">Identificación</h3>
+
+      <div class="form-group">
+        <label class="form-label">Nombre <span class="required">*</span></label>
+        <input formControlName="nombre" type="text" class="form-control"
+          placeholder="Nombre del artículo"
+          [class.invalid]="form.get('nombre')?.invalid && form.get('nombre')?.touched" />
+        @if (form.get('nombre')?.invalid && form.get('nombre')?.touched) {
+          <span class="field-error">El nombre es obligatorio (mínimo 3 caracteres)</span>
+        }
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Familia <span class="required">*</span></label>
+          <select formControlName="familia" class="form-control"
+            [class.invalid]="form.get('familia')?.invalid && form.get('familia')?.touched">
+            <option value="">-- Seleccionar familia --</option>
+            @for (cat of svc.categorias(); track cat.id) {
+              <option [value]="cat.id">{{ cat.id }} — {{ cat.nombre }}</option>
+            }
+          </select>
+          @if (form.get('familia')?.invalid && form.get('familia')?.touched) {
+            <span class="field-error">Selecciona una familia</span>
+          }
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Subfamilia</label>
+          <input formControlName="subfamilia" type="text" class="form-control" placeholder="Ej. 0000" />
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Marca</label>
+          <input formControlName="marca" type="text" class="form-control" placeholder="Código de marca" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Últ. Coste (€)</label>
+          <input formControlName="costUlt1" type="number" step="0.01" min="0" class="form-control" placeholder="0.00" />
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3 class="section-title">Estado y observaciones</h3>
+
+      <div class="form-group form-check-row">
+        <label class="check-label">
+          <input formControlName="baja" type="checkbox" class="form-check" />
+          Artículo de baja (inactivo en ERP)
+        </label>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Observaciones</label>
+        <textarea formControlName="observacio" class="form-control" rows="3"
+          placeholder="Observaciones internas..."></textarea>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <a routerLink="/maestros/productos" class="btn-cancel">Cancelar</a>
+      <button type="submit" class="btn-save" [disabled]="saving()">
+        @if (saving()) {
+          <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 11-6.219-8.56"/>
+          </svg>
+        }
+        {{ saving() ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear artículo') }}
+      </button>
+    </div>
+
+  </form>
+</div>

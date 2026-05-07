@@ -1,0 +1,96 @@
+<app-header [title]="title" subtitle="Datos Maestros / Tipos de documento" />
+
+@if (loading()) {
+  <div class="loading-state">
+    <svg class="spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 12a9 9 0 11-6.219-8.56"/>
+    </svg>
+    Cargando...
+  </div>
+} @else {
+
+<div class="form-card">
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+
+    <div class="form-section">
+      <h3 class="section-title">Información del tipo de documento</h3>
+
+      <div class="form-group">
+        <label class="form-label">Código <span class="required">*</span></label>
+        <input formControlName="codigo" type="text" class="form-control"
+          placeholder="Ej. OC, RQ, SC..."
+          [class.invalid]="form.get('codigo')?.invalid && form.get('codigo')?.touched" />
+        @if (form.get('codigo')?.invalid && form.get('codigo')?.touched) {
+          <span class="field-error">El código es obligatorio</span>
+        }
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Nombre <span class="required">*</span></label>
+        <input formControlName="nombre" type="text" class="form-control"
+          placeholder="Ej. Orden de compra, Requisición, Solicitud de compra..."
+          [class.invalid]="form.get('nombre')?.invalid && form.get('nombre')?.touched" />
+        @if (form.get('nombre')?.invalid && form.get('nombre')?.touched) {
+          <span class="field-error">El nombre es obligatorio (mínimo 2 caracteres)</span>
+        }
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Módulo <span class="required">*</span></label>
+        <select formControlName="modulo" class="form-control"
+          [class.invalid]="form.get('modulo')?.invalid && form.get('modulo')?.touched">
+          <option value="">— Selecciona un módulo —</option>
+          <option value="compras">Compras</option>
+          <option value="ventas">Ventas</option>
+          <option value="produccion">Producción</option>
+          <option value="almacen">Almacén</option>
+          <option value="general">General</option>
+        </select>
+        @if (form.get('modulo')?.invalid && form.get('modulo')?.touched) {
+          <span class="field-error">El módulo es obligatorio</span>
+        }
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Descripción</label>
+        <textarea formControlName="descripcion" class="form-control form-textarea"
+          rows="3" placeholder="Descripción opcional del tipo de documento..."></textarea>
+      </div>
+
+      <div class="form-group form-group-inline">
+        <label class="form-label">Activo</label>
+        <label class="toggle">
+          <input type="checkbox" formControlName="activo" />
+          <span class="toggle-track">
+            <span class="toggle-thumb"></span>
+          </span>
+          <span class="toggle-label">{{ form.get('activo')?.value ? 'Sí' : 'No' }}</span>
+        </label>
+      </div>
+    </div>
+
+    @if (error()) {
+      <div class="form-error-banner">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        {{ error() }}
+      </div>
+    }
+
+    <div class="form-actions">
+      <a routerLink="/maestros/tipos-documento" class="btn-cancel">Cancelar</a>
+      <button type="submit" class="btn-save" [disabled]="saving()">
+        @if (saving()) {
+          <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 11-6.219-8.56"/>
+          </svg>
+        }
+        {{ saving() ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear tipo de documento') }}
+      </button>
+    </div>
+
+  </form>
+</div>
+
+}

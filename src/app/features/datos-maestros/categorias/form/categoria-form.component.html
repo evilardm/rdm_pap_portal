@@ -1,0 +1,52 @@
+<app-header [title]="title" subtitle="Datos Maestros / Categorías" />
+
+<div class="form-card">
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+
+      <div class="form-section">
+        <h3 class="section-title">Información de la categoría</h3>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Código <span class="required">*</span></label>
+            <input formControlName="codigo" type="text" class="form-control"
+              placeholder="Ej. CAT001" [class.invalid]="form.get('codigo')?.invalid && form.get('codigo')?.touched" />
+            @if (form.get('codigo')?.invalid && form.get('codigo')?.touched) {
+              <span class="field-error">El código es obligatorio</span>
+            }
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Código Contable <span class="required">*</span></label>
+            <input formControlName="codigoContable" type="text" class="form-control"
+              placeholder="Ej. 60100" [class.invalid]="form.get('codigoContable')?.invalid && form.get('codigoContable')?.touched" />
+            @if (form.get('codigoContable')?.invalid && form.get('codigoContable')?.touched) {
+              <span class="field-error">El código contable es obligatorio</span>
+            }
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Descripción <span class="required">*</span></label>
+          <input formControlName="descripcion" type="text" class="form-control"
+            placeholder="Descripción de la categoría" [class.invalid]="form.get('descripcion')?.invalid && form.get('descripcion')?.touched" />
+          @if (form.get('descripcion')?.invalid && form.get('descripcion')?.touched) {
+            <span class="field-error">La descripción es obligatoria (mínimo 3 caracteres)</span>
+          }
+        </div>
+      </div>
+
+      <div class="form-actions">
+        <a routerLink="/maestros/categorias" class="btn-cancel">Cancelar</a>
+        <button type="submit" class="btn-save" [disabled]="saving()">
+          @if (saving()) {
+            <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 11-6.219-8.56"/>
+            </svg>
+          }
+          {{ saving() ? 'Guardando...' : (isEdit ? 'Actualizar' : 'Crear categoría') }}
+        </button>
+      </div>
+
+    </form>
+</div>

@@ -1,0 +1,273 @@
+:host {
+  display: block;
+  padding: 28px 32px;
+  max-width: 840px;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 0;
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.prefs-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.pref-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+/* ── Card header ── */
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.card-avatar {
+  width: 42px;
+  height: 42px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  font-weight: 600;
+  color: #374151;
+  flex-shrink: 0;
+}
+
+.card-header-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.card-email {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.role-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.role-admin {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+/* ── Profile form ── */
+.pref-form {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.required { color: #ef4444; }
+
+.form-control {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 5px;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: #111827;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+
+  &::placeholder { color: #9ca3af; }
+  &:focus { border-color: #3ecf8e; background: #ffffff; }
+  &.invalid { border-color: #f87171; background: #fff5f5; }
+}
+
+.form-control-readonly {
+  background: #f3f4f6;
+  color: #6b7280;
+  cursor: default;
+  &:focus { border-color: #e5e7eb; background: #f3f4f6; }
+}
+
+.field-error {
+  font-size: 11px;
+  color: #ef4444;
+}
+
+.form-error-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  font-size: 12.5px;
+  color: #dc2626;
+
+  svg { flex-shrink: 0; }
+}
+
+.form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.saved-msg {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12.5px;
+  color: #059669;
+  animation: fadeIn 0.3s ease;
+
+  svg { color: #059669; }
+}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+.btn-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 16px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #ffffff;
+  background: #3ecf8e;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) { background: #2dbe7e; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+/* ── Permissions card ── */
+.perms-header {
+  padding: 20px 24px 14px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.perms-note {
+  font-size: 12px;
+  color: #9ca3af;
+  margin: 4px 0 0;
+}
+
+.admin-note {
+  margin: 16px 24px;
+  font-size: 13px;
+  color: #059669;
+  background: #f0fdf4;
+  border: 1px solid #d1fae5;
+  border-radius: 7px;
+  padding: 10px 14px;
+}
+
+.modules-list {
+  padding: 12px 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.module-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.module-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  min-width: 120px;
+}
+
+.perm-tags {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.perm-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #d1d5db;
+
+  &.active {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #4338ca;
+  }
+}
+
+.no-perms {
+  padding: 20px 24px;
+  font-size: 13px;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.spin { animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

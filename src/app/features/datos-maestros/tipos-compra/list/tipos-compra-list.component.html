@@ -1,0 +1,144 @@
+<div class="list-header">
+  <app-header title="Tipos de documento" subtitle="Mantenimiento de tipos de documento" />
+</div>
+
+@if (svc.error()) {
+  <div class="load-error">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    {{ svc.error() }}
+  </div>
+}
+
+<!-- Toolbar -->
+<div class="table-toolbar">
+  <div class="toolbar-left">
+    <div class="search-wrapper">
+      <svg class="search-icon" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <input type="text" class="search-input" placeholder="Buscar por código, nombre, módulo..."
+        [value]="search()" (input)="search.set($any($event.target).value)" />
+    </div>
+    @if (search()) {
+      <button class="btn-clear" (click)="search.set('')">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    }
+  </div>
+  <div class="toolbar-right">
+    @if (svc.loading()) {
+      <span class="toolbar-loading">
+        <svg class="spin" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12a9 9 0 11-6.219-8.56"/>
+        </svg>
+        Cargando...
+      </span>
+    } @else {
+      <span class="toolbar-count">{{ filtered().length }} de {{ svc.tiposDocumento().length }} registros</span>
+    }
+    <a routerLink="/maestros/tipos-documento/nuevo" class="btn-insert">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+      </svg>
+      Nuevo tipo
+    </a>
+  </div>
+</div>
+
+<!-- Loading skeleton -->
+@if (svc.loading() && svc.tiposDocumento().length === 0) {
+  <div class="table-card">
+    <div class="skeleton-rows">
+      @for (_ of [1,2,3,4,5]; track $index) {
+        <div class="skeleton-row">
+          <div class="skel skel-name"></div>
+          <div class="skel skel-desc"></div>
+          <div class="skel skel-badge"></div>
+          <div class="skel skel-actions"></div>
+        </div>
+      }
+    </div>
+  </div>
+} @else {
+
+<div class="table-card">
+  @if (filtered().length === 0) {
+    <div class="empty-state">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/>
+        <rect x="9" y="3" width="6" height="4" rx="1"/>
+      </svg>
+      <p>No se encontraron tipos de documento</p>
+      @if (search()) {
+        <button class="btn-ghost" (click)="search.set('')">Limpiar búsqueda</button>
+      } @else {
+        <a routerLink="/maestros/tipos-documento/nuevo" class="btn-ghost">Crear el primero</a>
+      }
+    </div>
+  } @else {
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Código <span class="col-type">text</span></th>
+            <th>Nombre <span class="col-type">text</span></th>
+            <th>Módulo <span class="col-type">text</span></th>
+            <th>Descripción <span class="col-type">text</span></th>
+            <th>Estado <span class="col-type">bool</span></th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (t of paginated(); track t.id) {
+            <tr class="table-row">
+              <td class="text-mono">{{ t.codigo }}</td>
+              <td class="text-primary">{{ t.nombre }}</td>
+              <td><span class="badge badge-blue">{{ t.modulo }}</span></td>
+              <td class="text-muted max-w">{{ t.descripcion || '—' }}</td>
+              <td>
+                @if (t.activo) {
+                  <span class="badge badge-green">Activo</span>
+                } @else {
+                  <span class="badge badge-gray">Inactivo</span>
+                }
+              </td>
+              <td class="col-actions">
+                @if (deletingId() === t.id) {
+                  <span class="confirm-delete">
+                    <button class="btn-confirm-yes" (click)="doDelete(t.id)">Eliminar</button>
+                    <button class="btn-confirm-no" (click)="cancelDelete()">Cancelar</button>
+                  </span>
+                } @else {
+                  <a [routerLink]="['/maestros/tipos-documento', t.id, 'editar']" class="action-btn" title="Editar">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </a>
+                  <button class="action-btn action-btn-danger" (click)="confirmDelete(t.id)" title="Eliminar">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                      <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                    </svg>
+                  </button>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <app-paginator
+      [totalItems]="filtered().length"
+      [page]="currentPage()"
+      [pageSize]="pageSize()"
+      (pageChange)="page.set($event)"
+      (pageSizeChange)="onPageSizeChange($event)" />
+  }
+</div>
+
+}

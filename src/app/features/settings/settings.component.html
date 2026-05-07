@@ -1,0 +1,44 @@
+<app-header title="Configuración del sistema" subtitle="Permisos asignados por el servidor" />
+
+<div class="section-header">
+  <h2 class="section-title">Mis permisos</h2>
+  <p class="section-desc">Permisos activos en tu sesión actual. Para modificarlos, contacta con el administrador del sistema.</p>
+</div>
+
+<div class="users-list">
+  @if (auth.currentUser(); as user) {
+    <div class="user-card expanded">
+      <div class="user-card-header">
+        <div class="user-avatar">{{ user.name.charAt(0) }}</div>
+        <div class="user-info">
+          <span class="user-name">{{ user.name }}</span>
+          <span class="user-email">{{ user.email }}</span>
+        </div>
+        @if (auth.isAdmin()) {
+          <div class="role-badge">Administrador</div>
+        }
+      </div>
+
+      <div class="permissions-panel">
+        @if (auth.isAdmin()) {
+          <p class="admin-note">Como administrador tienes acceso completo a todos los módulos.</p>
+        } @else {
+          @for (m of modulos; track m.modulo) {
+            <div class="module-block">
+              <h4 class="module-title">{{ m.modulo }}</h4>
+              <div class="actions-grid">
+                <span class="perm-tag" [class.active]="m.puedeLeer">Lectura</span>
+                <span class="perm-tag" [class.active]="m.puedeEscribir">Escritura</span>
+                <span class="perm-tag" [class.active]="m.puedeAprobar">Aprobación</span>
+                <span class="perm-tag" [class.active]="m.esAdminModulo">Admin módulo</span>
+              </div>
+            </div>
+          }
+          @if (modulos.length === 0) {
+            <p class="empty-perms">No tienes módulos asignados.</p>
+          }
+        }
+      </div>
+    </div>
+  }
+</div>

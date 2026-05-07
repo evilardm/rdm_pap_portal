@@ -1,0 +1,94 @@
+<app-header [title]="title" subtitle="Compras / Pedidos Abiertos">
+  <a routerLink="/solicitudes/pedidos-abiertos" class="btn-ghost">Cancelar</a>
+</app-header>
+
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="create-form">
+
+  <div class="form-card">
+    <h2 class="card-title">Información del contrato</h2>
+
+    <div class="form-grid">
+      <div class="form-field">
+        <label class="field-label">Nº Contrato <span class="required">*</span></label>
+        <input formControlName="numero" type="text" class="field-input"
+          placeholder="Ej. PA-2024-001"
+          [class.error]="form.get('numero')?.invalid && form.get('numero')?.touched" />
+        @if (form.get('numero')?.invalid && form.get('numero')?.touched) {
+          <span class="field-error">El número de contrato es obligatorio</span>
+        }
+      </div>
+
+      <div class="form-field">
+        <label class="field-label">Estado <span class="required">*</span></label>
+        <select formControlName="status" class="field-input field-select">
+          <option value="abierto">Abierto</option>
+          <option value="cerrado">Cerrado</option>
+          <option value="cancelado">Cancelado</option>
+        </select>
+      </div>
+
+      <div class="form-field col-full">
+        <label class="field-label">Proveedor <span class="required">*</span></label>
+        <input formControlName="proveedor" type="text" class="field-input"
+          placeholder="Razón social del proveedor"
+          [class.error]="form.get('proveedor')?.invalid && form.get('proveedor')?.touched" />
+        @if (form.get('proveedor')?.invalid && form.get('proveedor')?.touched) {
+          <span class="field-error">El proveedor es obligatorio</span>
+        }
+      </div>
+
+      <div class="form-field col-full">
+        <label class="field-label">Descripción <span class="required">*</span></label>
+        <textarea formControlName="descripcion" class="field-input field-textarea" rows="3"
+          placeholder="Objeto del contrato o pedido..."
+          [class.error]="form.get('descripcion')?.invalid && form.get('descripcion')?.touched"></textarea>
+        @if (form.get('descripcion')?.invalid && form.get('descripcion')?.touched) {
+          <span class="field-error">La descripción es obligatoria (mínimo 5 caracteres)</span>
+        }
+      </div>
+
+      <div class="form-field">
+        <label class="field-label">Importe (€) <span class="required">*</span></label>
+        <input formControlName="importe" type="number" class="field-input" min="0" step="0.01"
+          placeholder="0.00"
+          [class.error]="form.get('importe')?.invalid && form.get('importe')?.touched" />
+        @if (form.get('importe')?.invalid && form.get('importe')?.touched) {
+          <span class="field-error">Introduce un importe válido</span>
+        }
+      </div>
+
+      <div class="form-field">
+        <label class="field-label">Fecha de inicio <span class="required">*</span></label>
+        <input formControlName="fechaInicio" type="date" class="field-input"
+          [class.error]="form.get('fechaInicio')?.invalid && form.get('fechaInicio')?.touched" />
+        @if (form.get('fechaInicio')?.invalid && form.get('fechaInicio')?.touched) {
+          <span class="field-error">La fecha de inicio es obligatoria</span>
+        }
+      </div>
+
+      <div class="form-field">
+        <label class="field-label">Fecha de fin</label>
+        <input formControlName="fechaFin" type="date" class="field-input" />
+      </div>
+
+      <div class="form-field col-full">
+        <label class="field-label">Notas</label>
+        <textarea formControlName="notas" class="field-input field-textarea" rows="2"
+          placeholder="Contacto, condiciones especiales, observaciones..."></textarea>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <a routerLink="/solicitudes/pedidos-abiertos" class="btn-draft">Cancelar</a>
+    <button type="submit" class="btn-submit" [disabled]="saving()">
+      @if (saving()) {
+        <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12a9 9 0 11-6.219-8.56"/>
+        </svg>
+      }
+      {{ saving() ? 'Guardando...' : (isEdit ? 'Actualizar contrato' : 'Crear contrato') }}
+    </button>
+  </div>
+
+</form>

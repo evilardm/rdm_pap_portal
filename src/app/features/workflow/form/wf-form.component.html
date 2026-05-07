@@ -1,0 +1,409 @@
+<app-header [title]="title" subtitle="Configura el flujo, sus condiciones de activación y los niveles de aprobación">
+  <a routerLink="/workflow" class="btn-cancel">Cancelar</a>
+</app-header>
+
+@if (loading()) {
+  <div class="loading-state">
+    <svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 12a9 9 0 11-6.219-8.56"/>
+    </svg>
+    Cargando flujo...
+  </div>
+} @else {
+<div class="form-body">
+
+  <!-- ── Sección 1: Info básica ──────────────────────────────────────────── -->
+  <form [formGroup]="form" class="form-card">
+    <div class="card-head">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      Información general
+    </div>
+    <div class="card-body">
+      <div class="form-grid">
+
+        <div class="form-field col-full">
+          <label class="field-label">Nombre del flujo <span class="req">*</span></label>
+          <input type="text" formControlName="nombre" class="field-input"
+            [class.error]="form.get('nombre')?.invalid && form.get('nombre')?.touched"
+            placeholder="Ej. Aprobación solicitudes de compra" />
+          @if (form.get('nombre')?.invalid && form.get('nombre')?.touched) {
+            <span class="field-error">El nombre es requerido (mínimo 3 caracteres)</span>
+          }
+        </div>
+
+        <div class="form-field">
+          <label class="field-label">Módulo <span class="req">*</span></label>
+          <select formControlName="modulo" class="field-input field-select" (change)="onModuloChange()">
+            @for (m of modulos; track m) {
+              <option [value]="m">{{ m }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="form-field">
+          <label class="field-label">Tipo de documento <span class="req">*</span></label>
+          <select formControlName="documento" class="field-input field-select" (change)="onDocumentoChange()">
+            <option value="">— Selecciona un tipo —</option>
+            @for (d of documentosDisponibles(); track d.id) {
+              <option [value]="d.id">{{ d.nombre }} ({{ d.codigo }})</option>
+            }
+          </select>
+          @if (documentosDisponibles().length === 0 && !tiposDocumentoSvc.loading()) {
+            <span class="field-hint">No hay tipos de documento para este módulo</span>
+          }
+        </div>
+
+        <div class="form-field col-full">
+          <label class="field-label">Descripción</label>
+          <textarea formControlName="descripcion" class="field-input" rows="2"
+            placeholder="Describe cuándo aplica este flujo..."></textarea>
+        </div>
+
+        <div class="form-field col-full">
+          <label class="toggle-row">
+            <span class="field-label" style="margin:0">Flujo activo</span>
+            <label class="toggle">
+              <input type="checkbox" formControlName="activo" />
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+        </div>
+
+      </div>
+    </div>
+  </form>
+
+  <!-- ── Sección 2: Condiciones de activación ───────────────────────────── -->
+  <div class="form-card">
+    <div class="card-head">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+      Condiciones de activación
+      <span class="card-head-hint">Define cuándo se aplica este flujo (vacío = siempre)</span>
+    </div>
+    <div class="card-body">
+      @if (condiciones().length === 0) {
+        <p class="hint-text">Sin condiciones: el flujo se activará para todos los documentos del tipo seleccionado.</p>
+      } @else {
+        <div class="cond-table">
+          <div class="cond-header">
+            <span>Campo</span><span>Operador</span><span>Valor</span><span>Lógica</span><span></span>
+          </div>
+          @for (c of condiciones(); track $index; let i = $index) {
+            <div class="cond-row">
+
+              <!-- Campo: select desde Supabase -->
+              <ng-container *ngTemplateOutlet="campoSelect; context: { campo: c.campo, idx: i, nivel: -1, condIdx: -1 }" />
+
+              <select class="cond-select"
+                [value]="c.operador" (change)="updateCondicion(i, 'operador', $any($event.target).value)">
+                @for (op of operadores; track op.value) {
+                  <option [value]="op.value">{{ op.label }}</option>
+                }
+              </select>
+
+              <!-- Valor: contextual según tipo del campo -->
+              <ng-container *ngTemplateOutlet="valorInput; context: { campo: c.campo, valor: c.valor, idx: i, nivel: -1, condIdx: -1 }" />
+
+              <select class="cond-select cond-logica"
+                [value]="c.logica" (change)="updateCondicion(i, 'logica', $any($event.target).value)">
+                <option value="AND">AND</option>
+                <option value="OR">OR</option>
+              </select>
+              <button class="icon-btn icon-btn-danger" (click)="removeCondicion(i)" title="Eliminar">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+          }
+        </div>
+      }
+      <button class="btn-add-row" (click)="addCondicion()">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Añadir condición
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Sección 3: Niveles de aprobación ───────────────────────────────── -->
+  <div class="form-card">
+    <div class="card-head">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+        <circle cx="9" cy="7" r="4"/>
+        <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+      </svg>
+      Niveles de aprobación
+    </div>
+    <div class="card-body">
+      @if (niveles().length === 0) {
+        <p class="hint-text">Sin niveles: el documento se aprobará automáticamente al enviarse.</p>
+      } @else {
+        <div class="niveles-list">
+          @for (n of niveles(); track $index; let i = $index) {
+            <div class="nivel-card" [class.expanded]="n.expanded">
+
+              <div class="nivel-head" (click)="toggleNivel(i)">
+                <div class="nivel-order">{{ i + 1 }}</div>
+                <div class="nivel-info">
+                  <span class="nivel-nombre">{{ n.nombre || 'Nivel sin nombre' }}</span>
+                  <span class="nivel-meta">
+                    {{ n.tipoAprobador }} · {{ getNivelAprobadorLabel(n) }}
+                    @if (n.condiciones.length > 0) {
+                      · <span class="cond-count">{{ n.condiciones.length }} condición@if(n.condiciones.length !== 1){es}</span>
+                    }
+                  </span>
+                </div>
+                <div class="nivel-actions" (click)="$event.stopPropagation()">
+                  <button class="icon-btn" (click)="moveNivel(i, -1)" [disabled]="i === 0" title="Subir">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <polyline points="18 15 12 9 6 15"/>
+                    </svg>
+                  </button>
+                  <button class="icon-btn" (click)="moveNivel(i, 1)" [disabled]="i === niveles().length - 1" title="Bajar">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <polyline points="6 9 12 15 18 9"/>
+                    </svg>
+                  </button>
+                  <button class="icon-btn icon-btn-danger" (click)="removeNivel(i)" title="Eliminar nivel">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <polyline points="3 6 5 6 21 6"/>
+                      <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                    </svg>
+                  </button>
+                </div>
+                <svg class="nivel-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 12 15 18 9"/>
+                </svg>
+              </div>
+
+              @if (n.expanded) {
+                <div class="nivel-body">
+                  <div class="nivel-grid">
+
+                    <div class="form-field">
+                      <label class="field-label">Nombre del nivel</label>
+                      <input type="text" class="field-input"
+                        [value]="n.nombre"
+                        (input)="updateNivel(i, 'nombre', $any($event.target).value)"
+                        placeholder="Ej. Jefe de departamento" />
+                    </div>
+
+                    <div class="form-field">
+                      <label class="field-label">Tipo de aprobador</label>
+                      <select class="field-input field-select"
+                        [value]="n.tipoAprobador"
+                        (change)="updateNivel(i, 'tipoAprobador', $any($event.target).value)">
+                        <option value="usuario">Usuario específico</option>
+                        <option value="rol">Por rol</option>
+                        <option value="departamento">Por departamento</option>
+                      </select>
+                    </div>
+
+                    <div class="form-field">
+                      <label class="field-label">
+                        @if (n.tipoAprobador === 'usuario') { Usuario aprobador }
+                        @else if (n.tipoAprobador === 'rol') { Nombre del rol }
+                        @else { Nombre del departamento }
+                      </label>
+                      @if (n.tipoAprobador === 'usuario') {
+                        <select class="field-input field-select"
+                          [value]="n.aprobadorValor"
+                          (change)="updateNivel(i, 'aprobadorValor', $any($event.target).value)">
+                          <option value="">— Selecciona un usuario —</option>
+                          @for (u of usuariosSvc.usuarios(); track u.id) {
+                            <option [value]="u.id">{{ u.nombre }} ({{ u.email }})</option>
+                          }
+                        </select>
+                      } @else {
+                        <input type="text" class="field-input"
+                          [value]="n.aprobadorValor"
+                          (input)="updateNivel(i, 'aprobadorValor', $any($event.target).value)"
+                          placeholder="Ej. director_financiero" />
+                      }
+                    </div>
+
+                    <div class="form-field">
+                      <label class="toggle-row">
+                        <div>
+                          <div class="field-label" style="margin-bottom:2px">Requiere todos</div>
+                          <div class="field-hint">Si hay varios aprobadores, todos deben aprobar</div>
+                        </div>
+                        <label class="toggle">
+                          <input type="checkbox"
+                            [checked]="n.requiereTodos"
+                            (change)="updateNivel(i, 'requiereTodos', $any($event.target).checked)" />
+                          <span class="toggle-slider"></span>
+                        </label>
+                      </label>
+                    </div>
+
+                  </div>
+
+                  <!-- Condiciones del nivel -->
+                  <div class="subcond-section">
+                    <div class="subcond-title">
+                      Condiciones del nivel
+                      <span class="subcond-hint">(definen cuándo saltarlo o forzarlo)</span>
+                    </div>
+                    @if (n.condiciones.length === 0) {
+                      <p class="hint-text hint-text--sm">Sin condiciones: el nivel siempre se ejecutará.</p>
+                    } @else {
+                      <div class="cond-table cond-table--nivel">
+                        <div class="cond-header cond-header--nivel">
+                          <span>Campo</span><span>Operador</span><span>Valor</span><span>Lógica</span><span>Acción</span><span></span>
+                        </div>
+                        @for (c of n.condiciones; track $index; let ci = $index) {
+                          <div class="cond-row">
+
+                            <ng-container *ngTemplateOutlet="campoSelect; context: { campo: c.campo, idx: -1, nivel: i, condIdx: ci }" />
+
+                            <select class="cond-select"
+                              [value]="c.operador" (change)="updateCondicionNivel(i, ci, 'operador', $any($event.target).value)">
+                              @for (op of operadores; track op.value) {
+                                <option [value]="op.value">{{ op.label }}</option>
+                              }
+                            </select>
+
+                            <ng-container *ngTemplateOutlet="valorInput; context: { campo: c.campo, valor: c.valor, idx: -1, nivel: i, condIdx: ci }" />
+
+                            <select class="cond-select cond-logica"
+                              [value]="c.logica" (change)="updateCondicionNivel(i, ci, 'logica', $any($event.target).value)">
+                              <option value="AND">AND</option>
+                              <option value="OR">OR</option>
+                            </select>
+                            <select class="cond-select cond-accion"
+                              [value]="c.accion" (change)="updateCondicionNivel(i, ci, 'accion', $any($event.target).value)">
+                              <option value="saltar">Saltar</option>
+                              <option value="requerir">Requerir</option>
+                            </select>
+                            <button class="icon-btn icon-btn-danger" (click)="removeCondicionNivel(i, ci)" title="Eliminar">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                              </svg>
+                            </button>
+                          </div>
+                        }
+                      </div>
+                    }
+                    <button class="btn-add-row btn-add-row--sm" (click)="addCondicionNivel(i)">
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                      Añadir condición
+                    </button>
+                  </div>
+                </div>
+              }
+
+            </div>
+          }
+        </div>
+      }
+      <button class="btn-add-nivel" (click)="addNivel()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Añadir nivel de aprobación
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Error & Actions ─────────────────────────────────────────────────── -->
+  @if (error()) {
+    <div class="form-error-banner">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      {{ error() }}
+    </div>
+  }
+
+  <div class="form-actions">
+    <a routerLink="/workflow" class="btn-cancel">Cancelar</a>
+    <button type="button" class="btn-save" (click)="onSubmit()" [disabled]="saving()">
+      @if (saving()) {
+        <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12a9 9 0 11-6.219-8.56"/>
+        </svg>
+      }
+      {{ saving() ? 'Guardando...' : (isEdit ? 'Guardar cambios' : 'Crear flujo') }}
+    </button>
+  </div>
+
+</div>
+}
+
+<!-- ── Templates reutilizables ─────────────────────────────────────────────── -->
+
+<!-- Select de campo (propuesto desde Supabase) -->
+<ng-template #campoSelect let-campo="campo" let-idx="idx" let-nivel="nivel" let-condIdx="condIdx">
+  @if (svc.camposDocumento().length > 0) {
+    <select class="cond-select cond-campo"
+      [value]="campo"
+      (change)="nivel >= 0
+        ? updateCondicionNivel(nivel, condIdx, 'campo', $any($event.target).value)
+        : updateCondicion(idx, 'campo', $any($event.target).value)">
+      <option value="">— Campo —</option>
+      @for (f of svc.camposDocumento(); track f.campo) {
+        <option [value]="f.campo">{{ f.label }}</option>
+      }
+    </select>
+  } @else {
+    <input type="text" class="cond-input" placeholder="campo"
+      [value]="campo"
+      (input)="nivel >= 0
+        ? updateCondicionNivel(nivel, condIdx, 'campo', $any($event.target).value)
+        : updateCondicion(idx, 'campo', $any($event.target).value)" />
+  }
+</ng-template>
+
+<!-- Input de valor contextual según tipo del campo -->
+<ng-template #valorInput let-campo="campo" let-valor="valor" let-idx="idx" let-nivel="nivel" let-condIdx="condIdx">
+  @if (getCampoTipo(campo) === 'enum') {
+    <select class="cond-select"
+      [value]="valor"
+      (change)="nivel >= 0
+        ? updateCondicionNivel(nivel, condIdx, 'valor', $any($event.target).value)
+        : updateCondicion(idx, 'valor', $any($event.target).value)">
+      <option value="">— Valor —</option>
+      @for (v of getCampoEnums(campo); track v) {
+        <option [value]="v">{{ v }}</option>
+      }
+    </select>
+  } @else if (getCampoTipo(campo) === 'boolean') {
+    <select class="cond-select"
+      [value]="valor"
+      (change)="nivel >= 0
+        ? updateCondicionNivel(nivel, condIdx, 'valor', $any($event.target).value)
+        : updateCondicion(idx, 'valor', $any($event.target).value)">
+      <option value="">— Valor —</option>
+      <option value="true">Sí</option>
+      <option value="false">No</option>
+    </select>
+  } @else if (getCampoTipo(campo) === 'number') {
+    <input type="number" class="cond-input" placeholder="0"
+      [value]="valor"
+      (input)="nivel >= 0
+        ? updateCondicionNivel(nivel, condIdx, 'valor', $any($event.target).value)
+        : updateCondicion(idx, 'valor', $any($event.target).value)" />
+  } @else if (getCampoTipo(campo) === 'date') {
+    <input type="date" class="cond-input"
+      [value]="valor"
+      (change)="nivel >= 0
+        ? updateCondicionNivel(nivel, condIdx, 'valor', $any($event.target).value)
+        : updateCondicion(idx, 'valor', $any($event.target).value)" />
+  } @else {
+    <input type="text" class="cond-input" placeholder="valor"
+      [value]="valor"
+      (input)="nivel >= 0
+        ? updateCondicionNivel(nivel, condIdx, 'valor', $any($event.target).value)
+        : updateCondicion(idx, 'valor', $any($event.target).value)" />
+  }
+</ng-template>

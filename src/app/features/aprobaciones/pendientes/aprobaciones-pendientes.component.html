@@ -1,0 +1,153 @@
+<app-header title="Bandeja de aprobaciones" subtitle="Solicitudes pendientes de tu aprobación" />
+
+@if (error()) {
+  <div class="load-error">{{ error() }}</div>
+}
+
+@if (actionError()) {
+  <div class="action-error">
+    {{ actionError() }}
+    <button (click)="actionError.set('')">✕</button>
+  </div>
+}
+
+@if (loading()) {
+  <div class="loading-state">
+    <svg class="spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 12a9 9 0 11-6.219-8.56"/>
+    </svg>
+    Cargando pendientes...
+  </div>
+} @else if (enriched().length === 0) {
+  <div class="empty-state">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+    <p>No tienes solicitudes pendientes de aprobación</p>
+    <div class="debug-card">
+      <p class="debug-title">¿No aparecen pendientes? Verifica:</p>
+      <ol class="debug-list">
+        <li>Existe un <strong>Tipo de documento</strong> en Configuración → Datos Maestros</li>
+        <li>Existe un <strong>Workflow</strong> con ese tipo de documento y un aprobador asignado</li>
+        <li>La solicitud tiene ese tipo de documento y fue <strong>enviada</strong> (estado "Pendiente")</li>
+        <li>El usuario actual coincide con el aprobador configurado en el workflow</li>
+        <li>Revisa la pestaña <strong>Network</strong> del navegador → llamada a <code>/api/workflow/instancias/pendientes</code></li>
+      </ol>
+      <button class="btn-reload" (click)="load()">Reintentar</button>
+    </div>
+  </div>
+} @else {
+  <div class="table-card">
+    <div class="table-wrapper">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Nº Solicitud</th>
+            <th>Título</th>
+            <th>Solicitante</th>
+            <th>Departamento</th>
+            <th>Tipo documento</th>
+            <th>Nivel</th>
+            <th class="text-right">Importe</th>
+            <th>Fecha</th>
+            <th class="col-actions"></th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (p of enriched(); track p.instanciaId) {
+            <tr class="table-row">
+              <td>
+                <a [routerLink]="['/solicitudes', p.documentoId]" class="link-num">
+                  {{ p.solicitudNumero || '—' }}
+                </a>
+              </td>
+              <td class="text-primary max-w">{{ p.solicitudTitulo }}</td>
+              <td class="text-muted">{{ p.solicitanteNombre }}</td>
+              <td class="text-muted">{{ p.departamento || '—' }}</td>
+              <td>
+                @if (p.tipoDocumentoNombre) {
+                  <span class="badge badge-blue">{{ p.tipoDocumentoNombre }}</span>
+                } @else { <span class="text-muted">—</span> }
+              </td>
+              <td class="text-muted">{{ p.nivelNombre }}</td>
+              <td class="text-mono text-right">{{ p.importeTotal | currency:'EUR':'symbol':'1.2-2' }}</td>
+              <td class="text-muted">{{ p.createdAt | date:'dd/MM/yyyy' }}</td>
+              <td class="col-actions">
+                <button class="btn-approve" (click)="openApprove(p)"
+                  [disabled]="processingId() === p.instanciaId">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Aprobar
+                </button>
+                <button class="btn-reject" (click)="openReject(p)"
+                  [disabled]="processingId() === p.instanciaId">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                  Rechazar
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+}
+
+<!-- Modal Aprobar -->
+@if (showApproveModal()) {
+  <div class="modal-overlay" (click)="showApproveModal.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">Aprobar solicitud</h3>
+        <button class="modal-close" (click)="showApproveModal.set(false)">✕</button>
+      </div>
+      <p class="modal-body">
+        ¿Confirmas la aprobación de
+        <strong>{{ selectedItem()?.solicitudNumero || selectedItem()?.documentoId }}</strong>?
+      </p>
+      <div class="modal-field">
+        <label class="field-label">Comentario (opcional)</label>
+        <textarea class="modal-textarea" rows="3" placeholder="Añade un comentario..."
+          [ngModel]="comment()" (ngModelChange)="comment.set($event)"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="showApproveModal.set(false)">Cancelar</button>
+        <button class="btn-approve-confirm" (click)="confirmarAprobacion()"
+          [disabled]="processingId() !== null">
+          {{ processingId() !== null ? 'Procesando...' : 'Confirmar aprobación' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- Modal Rechazar -->
+@if (showRejectModal()) {
+  <div class="modal-overlay" (click)="showRejectModal.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title danger-title">Rechazar solicitud</h3>
+        <button class="modal-close" (click)="showRejectModal.set(false)">✕</button>
+      </div>
+      <p class="modal-body">
+        Indica el motivo del rechazo para
+        <strong>{{ selectedItem()?.solicitudNumero || selectedItem()?.documentoId }}</strong>.
+      </p>
+      <div class="modal-field">
+        <label class="field-label">Motivo <span class="required">*</span></label>
+        <textarea class="modal-textarea" rows="3" placeholder="Explica el motivo del rechazo..."
+          [ngModel]="rejectReason()" (ngModelChange)="rejectReason.set($event)"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="showRejectModal.set(false)">Cancelar</button>
+        <button class="btn-reject-confirm" (click)="confirmarRechazo()"
+          [disabled]="!rejectReason() || processingId() !== null">
+          {{ processingId() !== null ? 'Procesando...' : 'Confirmar rechazo' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -1,0 +1,99 @@
+<app-header
+  [title]="greeting + ', ' + (auth.currentUser()?.name?.split(' ')?.[0] ?? '') + '!'"
+  subtitle="Aquí tienes un resumen de tus solicitudes de compra">
+  <a routerLink="/solicitudes/nueva" class="btn-primary">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Nueva solicitud
+  </a>
+</app-header>
+
+<!-- Stats cards -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-icon stat-icon--total">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+      </svg>
+    </div>
+    <div class="stat-content">
+      <span class="stat-label">Total solicitudes</span>
+      <span class="stat-value">{{ stats().total }}</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon stat-icon--pending">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+      </svg>
+    </div>
+    <div class="stat-content">
+      <span class="stat-label">Pendientes</span>
+      <span class="stat-value">{{ stats().pending }}</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon stat-icon--approved">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>
+    <div class="stat-content">
+      <span class="stat-label">Aprobadas</span>
+      <span class="stat-value">{{ stats().approved }}</span>
+    </div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-icon stat-icon--amount">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/>
+      </svg>
+    </div>
+    <div class="stat-content">
+      <span class="stat-label">Importe total</span>
+      <span class="stat-value">{{ stats().totalAmount | currency:'MXN':'symbol-narrow':'1.0-0' }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- Recent requests table -->
+<div class="table-card">
+  <div class="table-header">
+    <h2 class="table-title">Solicitudes recientes</h2>
+    <a routerLink="/solicitudes" class="btn-ghost">Ver todas</a>
+  </div>
+
+  <div class="table-wrapper">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>N° Solicitud</th>
+          <th>Título</th>
+          <th>Solicitante</th>
+          <th>Importe</th>
+          <th>Prioridad</th>
+          <th>Estado</th>
+          <th>Fecha</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let req of recentRequests().slice(0, 5)"
+            [routerLink]="['/solicitudes', req.id]"
+            class="table-row clickable">
+          <td class="text-mono">{{ req.requestNumber }}</td>
+          <td class="text-primary">{{ req.title }}</td>
+          <td class="text-muted">{{ req.requesterName }}</td>
+          <td class="text-mono">{{ req.totalAmount | currency:'MXN':'symbol-narrow':'1.0-0' }}</td>
+          <td><app-status-badge [priority]="req.priority" /></td>
+          <td><app-status-badge [status]="req.status" /></td>
+          <td class="text-muted">{{ req.createdAt | date:'dd/MM/yyyy' }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

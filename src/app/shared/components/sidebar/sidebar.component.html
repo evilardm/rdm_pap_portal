@@ -1,0 +1,33 @@
+<aside class="sidebar">
+  <div class="sidebar-schema">
+    <div class="schema-selector">
+      <span>{{ moduleLabel() }}</span>
+    </div>
+    @if (moduleNewPath()) {
+      <a [routerLink]="moduleNewPath()" class="btn-new-item" title="Nuevo">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+      </a>
+    }
+  </div>
+
+  <nav class="sidebar-nav">
+    @for (group of navGroups(); track group.label) {
+      <div class="nav-group">
+        <span class="nav-group-label">{{ group.label }}</span>
+        @for (item of group.items; track item.path) {
+          @if (!item.requiredPermission || auth.hasPermission(item.requiredPermission)) {
+            <a [routerLink]="item.path"
+               routerLinkActive="active"
+               [routerLinkActiveOptions]="{ exact: false }"
+               class="nav-item">
+              <span class="nav-item-dot"></span>
+              <span class="item-label">{{ item.label }}</span>
+            </a>
+          }
+        }
+      </div>
+    }
+  </nav>
+</aside>

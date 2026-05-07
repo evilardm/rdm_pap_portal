@@ -1,0 +1,480 @@
+@if (request(); as req) {
+
+<app-header [title]="req.requestNumber" [subtitle]="req.title">
+  <app-status-badge [priority]="req.priority" />
+  <app-status-badge [status]="req.status" />
+  @if (req.status === 'draft') {
+    <button class="btn-submit-draft" (click)="submitDraft()" [disabled]="processing()">
+      @if (processing()) {
+        <svg class="spinner" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12a9 9 0 11-6.219-8.56"/>
+        </svg>
+      }
+      {{ processing() ? 'Enviando...' : 'Enviar solicitud' }}
+    </button>
+  }
+  @if (auth.isApprover() && req.status === 'pending') {
+    <button class="btn-approve" (click)="showApproveModal.set(true)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+      Aprobar
+    </button>
+    <button class="btn-reject" (click)="showRejectModal.set(true)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+      Rechazar
+    </button>
+  }
+  @if (!isEmbedded()) {
+    <a routerLink="/solicitudes" class="btn-ghost">Volver</a>
+  }
+</app-header>
+
+<!-- Meta strip -->
+<div class="meta-strip">
+  <div class="meta-item">
+    <span class="meta-key">Solicitante</span>
+    <span class="meta-val">{{ req.requesterName }}</span>
+  </div>
+  <div class="meta-div"></div>
+  <div class="meta-item">
+    <span class="meta-key">Departamento</span>
+    <span class="meta-val">{{ req.requesterDepartment }}</span>
+  </div>
+  @if (tipoDocumentoNombre()) {
+    <div class="meta-div"></div>
+    <div class="meta-item">
+      <span class="meta-key">Tipo de documento</span>
+      <span class="meta-val">{{ tipoDocumentoNombre() }}</span>
+      @if (tipoDocumentoDescripcion()) {
+        <span class="meta-sub">{{ tipoDocumentoDescripcion() }}</span>
+      }
+    </div>
+  }
+  @if (req.referencia) {
+    <div class="meta-div"></div>
+    <div class="meta-item">
+      <span class="meta-key">Referencia</span>
+      <span class="meta-val">{{ req.referencia }}</span>
+    </div>
+  }
+  @if (req.supplier) {
+    <div class="meta-div"></div>
+    <div class="meta-item">
+      <span class="meta-key">Proveedor</span>
+      <span class="meta-val">{{ req.supplier }}</span>
+    </div>
+  }
+  @if (req.ordenMantenimiento) {
+    <div class="meta-div"></div>
+    <div class="meta-item">
+      <span class="meta-key">Orden de mantenimiento</span>
+      <span class="meta-val mono">{{ req.ordenMantenimiento }}</span>
+    </div>
+  }
+  @if (aprobadorActual()) {
+    <div class="meta-div"></div>
+    <div class="meta-item">
+      <span class="meta-key">Pendiente de aprobación</span>
+      <span class="meta-val">{{ aprobadorActual() }}</span>
+    </div>
+  }
+  <div class="meta-div"></div>
+  <div class="meta-item">
+    <span class="meta-key">Fecha creación</span>
+    <span class="meta-val">{{ req.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
+  </div>
+  @if (req.approvedAt) {
+    <div class="meta-div"></div>
+    <div class="meta-item">
+      <span class="meta-key">Fecha aprobación</span>
+      <span class="meta-val success">{{ req.approvedAt | date:'dd/MM/yyyy HH:mm' }}</span>
+    </div>
+  }
+  @if (req.rejectedAt) {
+    <div class="meta-div"></div>
+    <div class="meta-item">
+      <span class="meta-key">Fecha rechazo</span>
+      <span class="meta-val danger">{{ req.rejectedAt | date:'dd/MM/yyyy HH:mm' }}</span>
+    </div>
+  }
+  @if (req.approverName) {
+    <div class="meta-div"></div>
+    <div class="meta-item">
+      <span class="meta-key">Aprobado por</span>
+      <span class="meta-val">{{ req.approverName }}</span>
+    </div>
+  }
+</div>
+
+<!-- Historial — path estilo Salesforce -->
+<div class="path-bar">
+  <div class="path-step path-step--complete">
+    <span class="path-label">Solicitud creada</span>
+    <span class="path-sub">{{ req.requesterName }} · {{ req.createdAt | date:'dd/MM/yyyy' }}</span>
+  </div>
+  <div class="path-step"
+       [ngClass]="{
+         'path-step--complete': req.status === 'approved' || req.status === 'rejected',
+         'path-step--current': req.status === 'pending',
+         'path-step--future':  req.status === 'draft'
+       }">
+    <span class="path-label">Enviada para revisión</span>
+    @if (req.status === 'pending') {
+      <span class="path-sub">
+        {{ aprobadorActual() ? 'Pendiente · ' + aprobadorActual() : 'Pendiente de aprobación' }}
+      </span>
+    }
+  </div>
+  <div class="path-step"
+       [ngClass]="{
+         'path-step--approved': req.status === 'approved',
+         'path-step--rejected': req.status === 'rejected',
+         'path-step--future':   req.status === 'draft' || req.status === 'pending'
+       }">
+    <span class="path-label">{{ req.status === 'rejected' ? 'Rechazada' : 'Aprobada' }}</span>
+    @if (req.status === 'approved') {
+      <span class="path-sub">{{ req.approverName }} · {{ req.approvedAt | date:'dd/MM/yyyy' }}</span>
+    }
+    @if (req.status === 'rejected') {
+      <span class="path-sub">{{ req.approverName }} · {{ req.rejectedAt | date:'dd/MM/yyyy' }}</span>
+    }
+  </div>
+</div>
+
+<!-- Main content -->
+<div class="detail-main">
+  <!-- Description -->
+  <div class="info-card">
+    <h3 class="info-card-title">Descripción</h3>
+    <p class="description-text">{{ req.description }}</p>
+  </div>
+
+  <!-- Items table -->
+  <div class="info-card">
+    <h3 class="info-card-title">Partidas de la solicitud</h3>
+    <div class="table-wrapper">
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Descripción</th>
+            <th>Cantidad</th>
+            <th>Unidad</th>
+            <th>Precio unitario</th>
+            <th>Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (item of req.items; track item.id; let i = $index) {
+            <tr class="item-row">
+              <td class="text-muted">{{ i + 1 }}</td>
+              <td class="text-primary">{{ item.description }}</td>
+              <td class="text-center">{{ item.quantity }}</td>
+              <td class="text-muted">{{ item.unit }}</td>
+              <td class="text-mono">{{ item.unitPrice | currency:'EUR':'symbol':'1.2-2' }}</td>
+              <td class="text-mono text-highlight">{{ item.subtotal | currency:'EUR':'symbol':'1.2-2' }}</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="5" class="total-label">Importe total</td>
+            <td class="total-value">{{ req.totalAmount | currency:'EUR':'symbol':'1.2-2' }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- Presupuestos de la solicitud -->
+  <div class="info-card">
+    <div class="docs-header">
+      <h3 class="info-card-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        Presupuestos
+        @if (req.presupuestos?.length) {
+          <span class="docs-count">{{ req.presupuestos!.length }}</span>
+        }
+      </h3>
+      <button class="btn-add-doc" (click)="openAddModal()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Añadir presupuesto
+      </button>
+    </div>
+
+    @if (!req.presupuestos?.length) {
+      <div class="docs-empty">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>
+        </svg>
+        <p>Sin presupuestos adjuntos. Añade cotizaciones de proveedores para esta solicitud.</p>
+      </div>
+    } @else {
+      <div class="table-wrapper">
+        <table class="presupuestos-table">
+          <thead>
+            <tr>
+              <th>Proveedor</th>
+              <th>Precio presupuestado</th>
+              <th>Fecha</th>
+              <th>Archivo</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (p of req.presupuestos; track p.id) {
+              <tr>
+                <td class="pres-proveedor">{{ p.proveedor }}</td>
+                <td class="pres-precio">{{ p.precio | currency:'EUR':'symbol':'1.2-2' }}</td>
+                <td class="pres-fecha">{{ p.fecha | date:'dd/MM/yyyy' }}</td>
+                <td>
+                  <button class="btn-view-pdf" (click)="openPresupuesto(p)" [title]="p.fileName">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                      <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    Ver PDF
+                  </button>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    }
+  </div>
+
+  <!-- Workflow steps -->
+  @if (wfInstancia(); as inst) {
+    <div class="info-card">
+      <h3 class="info-card-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+        </svg>
+        Flujo de aprobación
+        <span class="wf-flujo-nombre">{{ inst.flujoNombre }}</span>
+      </h3>
+      <div class="wf-steps">
+        @for (paso of inst.pasos; track paso.id) {
+          <div class="wf-step"
+            [class.wf-step--pending]="paso.estado === 'pendiente'"
+            [class.wf-step--approved]="paso.estado === 'aprobado'"
+            [class.wf-step--rejected]="paso.estado === 'rechazado'"
+            [class.wf-step--skipped]="paso.estado === 'saltado'">
+            <div class="wf-step-icon">
+              @if (paso.estado === 'aprobado') {
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+              } @else if (paso.estado === 'rechazado') {
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              } @else if (paso.estado === 'saltado') {
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 12 19 12"/><polyline points="13 6 19 12 13 18"/></svg>
+              } @else {
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/></svg>
+              }
+            </div>
+            <div class="wf-step-body">
+              <span class="wf-step-nivel">{{ paso.nivelNombre }}</span>
+              @if (paso.aprobadorNombre) {
+                <span class="wf-step-aprobador">{{ paso.aprobadorNombre }}</span>
+              }
+              @if (paso.comentario) {
+                <span class="wf-step-comentario">{{ paso.comentario }}</span>
+              }
+            </div>
+            <div class="wf-step-meta">
+              <span class="wf-step-estado wf-estado--{{ paso.estado }}">
+                {{ paso.estado === 'pendiente' ? 'Pendiente' : paso.estado === 'aprobado' ? 'Aprobado' : paso.estado === 'rechazado' ? 'Rechazado' : 'Saltado' }}
+              </span>
+              @if (paso.fechaAccion) {
+                <span class="wf-step-fecha">{{ paso.fechaAccion | date:'dd/MM/yyyy HH:mm' }}</span>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- Rejection reason -->
+  @if (req.status === 'rejected' && req.rejectionReason) {
+    <div class="info-card info-card--rejected">
+      <h3 class="info-card-title danger-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        Motivo de rechazo
+      </h3>
+      <p class="description-text">{{ req.rejectionReason }}</p>
+    </div>
+  }
+
+  <!-- Approval comment -->
+  @if (req.status === 'approved' && req.comments) {
+    <div class="info-card info-card--approved">
+      <h3 class="info-card-title success-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Comentarios de aprobación
+      </h3>
+      <p class="description-text">{{ req.comments }}</p>
+    </div>
+  }
+</div>
+
+<!-- ── Add presupuesto modal ──────────────────────────────── -->
+@if (showAddModal()) {
+  <div class="modal-overlay" (click)="showAddModal.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">Añadir presupuesto</h3>
+        <button class="modal-close" (click)="showAddModal.set(false)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <div class="modal-field">
+        <label class="field-label">Proveedor <span class="required">*</span></label>
+        <app-typeahead-input
+          [options]="proveedorOptions()"
+          placeholder="Buscar proveedor por nombre..."
+          inputClass="modal-input"
+          [ngModel]="modalProveedor()"
+          (ngModelChange)="modalProveedor.set($event)" />
+      </div>
+
+      <div class="modal-row">
+        <div class="modal-field">
+          <label class="field-label">Precio presupuestado <span class="required">*</span></label>
+          <input type="number" class="modal-input" placeholder="0.00" min="0"
+            [ngModel]="modalPrecio()" (ngModelChange)="modalPrecio.set($event)" />
+        </div>
+        <div class="modal-field">
+          <label class="field-label">Fecha del presupuesto <span class="required">*</span></label>
+          <input type="date" class="modal-input"
+            [ngModel]="modalFecha()" (ngModelChange)="modalFecha.set($event)" />
+        </div>
+      </div>
+
+      <div class="modal-field">
+        <label class="field-label">Archivo PDF <span class="required">*</span></label>
+        @if (modalFileName()) {
+          <div class="modal-file-attached">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <span class="modal-file-name">{{ modalFileName() }}</span>
+            <button type="button" class="modal-file-remove"
+              (click)="modalFileName.set(''); modalFileData.set(''); modalFileSize.set(0)">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        } @else {
+          <label class="modal-file-label">
+            <input type="file" accept="application/pdf" style="display:none" (change)="onModalFile($event)" />
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+            </svg>
+            Seleccionar PDF (máx. 5 MB)
+          </label>
+        }
+      </div>
+
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="showAddModal.set(false)">Cancelar</button>
+        <button class="btn-approve-confirm" (click)="savePresupuesto()"
+          [disabled]="!modalValid || modalSaving()">
+          {{ modalSaving() ? 'Guardando...' : 'Guardar presupuesto' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ── Approve Modal ──────────────────────────────────────── -->
+@if (showApproveModal()) {
+  <div class="modal-overlay" (click)="showApproveModal.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">Aprobar solicitud</h3>
+        <button class="modal-close" (click)="showApproveModal.set(false)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <p class="modal-body">¿Confirmas la aprobación de la solicitud <strong>{{ req.requestNumber }}</strong> por {{ req.totalAmount | currency:'EUR':'symbol':'1.0-0' }}?</p>
+      <div class="modal-field">
+        <label class="field-label">Comentarios (opcional)</label>
+        <textarea class="modal-textarea" rows="3" placeholder="Agrega comentarios para el solicitante..."
+          [ngModel]="approveComment()" (ngModelChange)="approveComment.set($event)"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="showApproveModal.set(false)">Cancelar</button>
+        <button class="btn-approve-confirm" (click)="approve()" [disabled]="processing()">
+          {{ processing() ? 'Procesando...' : 'Confirmar aprobación' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+<!-- ── Reject Modal ───────────────────────────────────────── -->
+@if (showRejectModal()) {
+  <div class="modal-overlay" (click)="showRejectModal.set(false)">
+    <div class="modal" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title danger-title">Rechazar solicitud</h3>
+        <button class="modal-close" (click)="showRejectModal.set(false)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <p class="modal-body">Indica el motivo del rechazo para la solicitud <strong>{{ req.requestNumber }}</strong>.</p>
+      <div class="modal-field">
+        <label class="field-label">Motivo de rechazo <span class="required">*</span></label>
+        <textarea class="modal-textarea" rows="4" placeholder="Explica el motivo del rechazo..."
+          [ngModel]="rejectReason()" (ngModelChange)="rejectReason.set($event)"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button class="btn-ghost" (click)="showRejectModal.set(false)">Cancelar</button>
+        <button class="btn-reject-confirm" (click)="reject()" [disabled]="!rejectReason() || processing()">
+          {{ processing() ? 'Procesando...' : 'Confirmar rechazo' }}
+        </button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (actionError()) {
+  <div class="action-error-banner">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    {{ actionError() }}
+    <button class="banner-close" (click)="actionError.set('')">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+      </svg>
+    </button>
+  </div>
+}
+
+} @else {
+  <div class="not-found">
+    <p>Solicitud no encontrada.</p>
+    <a routerLink="/solicitudes" class="btn-ghost">Volver a solicitudes</a>
+  </div>
+}
