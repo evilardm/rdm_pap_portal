@@ -1,5 +1,5 @@
-import { Component, inject, signal, computed, input, OnInit, effect } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { Component, inject, signal, computed, input, OnInit, effect, untracked } from '@angular/core';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PurchaseRequestService } from '../../../core/services/purchase-request.service';
@@ -7,11 +7,15 @@ import { AuthService } from '../../../core/services/auth.service';
 import { DatosMaestrosService } from '../../../core/services/datos-maestros.service';
 import { TiposDocumentoService } from '../../../core/services/tipos-compra.service';
 import { WorkflowService } from '../../../core/services/workflow.service';
-import { WfInstancia } from '../../../core/models/workflow.model';
+import { UsuariosService } from '../../../core/services/usuarios.service';
+import { InversionesService } from '../../../core/services/inversiones.service';
+import { WfInstancia, WfFlujo, WfCondicionFlujo, WfCondicionNivel, WfOperador } from '../../../core/models/workflow.model';
+import { ApiUsuario } from '../../../core/models/api-usuario.model';
 import { HeaderComponent } from '../../../shared/components/header/header.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { TypeaheadInputComponent } from '../../../shared/components/typeahead-input/typeahead-input.component';
-import { PurchaseRequest, Presupuesto } from '../../../core/models/purchase-request.model';
+import { PurchaseRequest } from '../../../core/models/purchase-request.model';
+import { ApiPresupuestoCreatePayload } from '../../../core/models/api-solicitud.model';
 
 @Component({
   selector: 'app-pr-detail',
@@ -22,13 +26,21 @@ import { PurchaseRequest, Presupuesto } from '../../../core/models/purchase-requ
 })
 export class PrDetailComponent implements OnInit {
   private route          = inject(ActivatedRoute);
+  private router         = inject(Router);
   private prService      = inject(PurchaseRequestService);
   private maestros       = inject(DatosMaestrosService);
   private tiposDocSvc    = inject(TiposDocumentoService);
   private wfSvc          = inject(WorkflowService);
+  private usuariosSvc    = inject(UsuariosService);
+  private inversionesSvc = inject(InversionesService);
   auth = inject(AuthService);
 
-  wfInstancia = signal<WfInstancia | null>(null);
+  wfInstancia        = signal<WfInstancia | null>(null);
+  wfFlujo            = signal<WfFlujo | null>(null);
+  wfInstanciaLoading = signal(false);
+  wfLoadFailed       = signal(false);
+  wfPreviewFlujo     = signal<WfFlujo | null>(null);
+  wfPreviewLoading   = signal(false);
 
   proveedorOptions = computed(() =>
     this.maestros.proveedores().map(p => ({ label: p.nombre, sublabel: p.id, value: p.nombre }))
@@ -50,15 +62,189 @@ export class PrDetailComponent implements OnInit {
 
   tipoDocumentoDescripcion = computed(() => this.tipoDocumento()?.descripcion ?? null);
 
+  inversionLabel = computed(() => {
+    const req = this.request();
+    if (!req?.inversion || !req.codigoInversion) return null;
+    const inv = this.inversionesSvc.inversiones().find(i => i.codigo === req.codigoInversion);
+    return inv ? `${inv.codigo} — ${inv.descripcion}` : req.codigoInversion;
+  });
+
   aprobadorActual = computed(() => {
     const req = this.request();
     if (!req || req.status !== 'pending') return null;
+    const usuarios = this.usuariosSvc.usuarios();
+
+    // 1. Nombre directo de la solicitud (devuelto por el endpoint de detalle)
     if (req.aprobadorNombre) return req.aprobadorNombre;
-    // Fallback: paso pendiente del workflow
+
+    // 2. Buscar por aprobadorId de la solicitud en la lista de usuarios
+    if (req.aprobadorId) {
+      const u = usuarios.find(u => u.id === req.aprobadorId || u.email === req.aprobadorId);
+      if (u) return u.nombre;
+      return req.aprobadorId; // fallback al ID/email en bruto
+    }
+
+    // 3. Usar datos de la instancia de workflow si está cargada
     const inst = this.wfInstancia();
     if (!inst) return null;
+
+    const nivelPendiente = inst.niveles?.find(n => n.estado === 'pendiente');
+    if (nivelPendiente) {
+      return this.resolveAprobador(nivelPendiente.tipoAprobador, nivelPendiente.aprobadorValor, nivelPendiente.aprobadorNombre, usuarios) ?? null;
+    }
+
     const pasoPendiente = inst.pasos.find(p => p.estado === 'pendiente');
     return pasoPendiente?.aprobadorNombre ?? null;
+  });
+
+  wfPreview = computed(() => {
+    const req = this.request();
+    if (!req || req.status !== 'draft') return null;
+    const flujo = this.wfPreviewFlujo();
+    if (!flujo?.niveles.length) return null;
+    const datos    = this.buildDatosDocumento(req);
+    const usuarios = this.usuariosSvc.usuarios();
+    return {
+      flujoNombre: flujo.nombre,
+      niveles: [...flujo.niveles]
+        .sort((a, b) => a.orden - b.orden)
+        .map(n => ({
+          nombre:    n.nombre,
+          aprobador: this.resolveAprobador(n.tipoAprobador, n.aprobadorValor, undefined, usuarios),
+          saltado:   this.nivelSaltado(n.condiciones, datos),
+        })),
+    };
+  });
+
+  wfNivelesResueltos = computed(() => {
+    const inst = this.wfInstancia();
+    if (!inst?.niveles?.length) return null;
+    const usuarios = this.usuariosSvc.usuarios();
+    return inst.niveles.map(n => ({
+      ...n,
+      aprobadorDisplay: this.resolveAprobador(n.tipoAprobador, n.aprobadorValor, n.aprobadorNombre, usuarios),
+    }));
+  });
+
+  pathSteps = computed(() => {
+    const req        = this.request();
+    const inst       = this.wfInstancia();
+    const flujo      = this.wfFlujo();
+    const usuarios   = this.usuariosSvc.usuarios();
+    const wfLoading  = this.wfInstanciaLoading();
+
+    type StepState = 'complete' | 'current' | 'future' | 'approved' | 'rejected' | 'skipped';
+    interface PathStep {
+      label: string; sub?: string; state: StepState;
+      aprobador?: string; fecha?: Date; comentario?: string;
+    }
+
+    const steps: PathStep[] = [{
+      label: 'Solicitud creada',
+      sub: req ? `${req.requesterName} · ` : undefined,
+      state: 'complete',
+      fecha: req?.createdAt,
+    }];
+
+    if (inst) {
+      const niveles = inst.niveles;
+      if (niveles?.length) {
+        // Mapa nivelId → definición del flujo (con condiciones) para pre-evaluar saltos
+        const nivelDefMap = new Map((flujo?.niveles ?? []).map(n => [n.id!, n]));
+        const datos = req ? this.buildDatosDocumento(req) : {};
+
+        for (const nivel of niveles) {
+          let state: StepState =
+            nivel.estado === 'aprobado'   ? 'complete' :
+            nivel.estado === 'rechazado'  ? 'rejected'  :
+            nivel.estado === 'saltado'    ? 'skipped'   :
+            nivel.estado === 'pendiente'  ? 'current'   : 'future';
+
+          // Pre-evaluar si un nivel en espera se saltará según las condiciones del flujo
+          if (state === 'future' && req) {
+            const nivelDef = nivelDefMap.get(nivel.nivelId);
+            if (nivelDef && this.nivelSaltado(nivelDef.condiciones, datos)) {
+              state = 'skipped';
+            }
+          }
+
+          steps.push({
+            label:      nivel.nivelNombre,
+            aprobador:  state === 'skipped' ? undefined
+                          : this.resolveAprobador(nivel.tipoAprobador, nivel.aprobadorValor, nivel.aprobadorNombre, usuarios),
+            comentario: nivel.comentario,
+            fecha:      nivel.fechaAccion,
+            state,
+          });
+        }
+      } else {
+        // Fallback: usar inst.pasos (estructura anterior)
+        const datos = req ? this.buildDatosDocumento(req) : {};
+        let currentAssigned = false;
+        for (const paso of inst.pasos) {
+          const nivelFlujo = flujo?.niveles.find(n => n.id === paso.nivelId);
+          let state: StepState;
+          if (paso.estado === 'aprobado') {
+            state = 'complete';
+          } else if (paso.estado === 'rechazado') {
+            state = 'rejected';
+          } else if (paso.estado === 'saltado') {
+            state = 'skipped';
+          } else if (!currentAssigned) {
+            state = 'current';
+            currentAssigned = true;
+          } else {
+            // Pre-evaluar salto si hay definición del flujo disponible
+            state = (nivelFlujo && req && this.nivelSaltado(nivelFlujo.condiciones, datos))
+              ? 'skipped'
+              : 'future';
+          }
+          steps.push({
+            label:      paso.nivelNombre ?? nivelFlujo?.nombre ?? 'Aprobación',
+            aprobador:  state === 'skipped' ? undefined
+                          : this.resolveAprobador(nivelFlujo?.tipoAprobador ?? '', nivelFlujo?.aprobadorValor ?? '', paso.aprobadorNombre, usuarios),
+            comentario: paso.comentario,
+            fecha:      paso.fechaAccion,
+            state,
+          });
+        }
+      }
+      // Paso final de resolución
+      const finalState: StepState =
+        inst.estado === 'aprobado'  ? 'approved' :
+        inst.estado === 'rechazado' ? 'rejected'  : 'future';
+      steps.push({
+        label: inst.estado === 'rechazado' ? 'Rechazada' : 'Aprobada',
+        state: finalState,
+      });
+    } else if (req?.status === 'draft') {
+      const preview = this.wfPreview();
+      if (preview?.niveles.length) {
+        for (const n of preview.niveles) {
+          steps.push({
+            label:     n.nombre,
+            aprobador: n.saltado ? undefined : n.aprobador,
+            state:     n.saltado ? 'skipped' : 'future',
+          });
+        }
+        steps.push({ label: 'Aprobada', state: 'future' });
+      } else {
+        steps.push({ label: 'Pendiente de envío', state: 'future' });
+      }
+    } else if (req?.status === 'pending') {
+      steps.push({
+        label:     wfLoading ? 'Cargando flujo...' : 'Pendiente de aprobación',
+        aprobador: wfLoading ? undefined : (this.aprobadorActual() ?? undefined),
+        state:     'current',
+      });
+      if (!wfLoading) steps.push({ label: 'Aprobada', state: 'future' });
+    } else if (req?.status === 'approved') {
+      steps.push({ label: 'Aprobada', state: 'approved', fecha: req.approvedAt });
+    } else if (req?.status === 'rejected') {
+      steps.push({ label: 'Rechazada', state: 'rejected', fecha: req.rejectedAt });
+    }
+
+    return steps;
   });
 
   detailId   = input<string | undefined>(undefined);
@@ -81,35 +267,120 @@ export class PrDetailComponent implements OnInit {
   actionError      = signal('');
 
   // Add presupuesto modal
-  showAddModal   = signal(false);
-  modalProveedor = signal('');
-  modalPrecio    = signal<number | null>(null);
-  modalFecha     = signal('');
-  modalFileName  = signal('');
-  modalFileSize  = signal(0);
-  modalFileData  = signal('');
-  modalSaving    = signal(false);
+  showAddModal      = signal(false);
+  modalProveedor    = signal('');
+  modalPrecio       = signal<number | null>(null);
+  modalFecha        = signal('');
+  modalNumeroOferta = signal('');
+  modalFileName     = signal('');
+  modalFileSize     = signal(0);
+  modalFileData     = signal('');
+  modalSaving       = signal(false);
 
   constructor() {
-    // Ensure detail data is always fresh from API
     effect(() => {
       const id = this.resolvedId();
-      if (id) this.prService.loadById(id);
+      if (!id) return;
+      this.prService.loadById(id);
+      this.wfInstancia.set(null);
+      this.wfFlujo.set(null);
+      this.wfLoadFailed.set(false);
+      this.wfPreviewFlujo.set(null);
+      this.loadWfInstancia();
+    });
+
+    // Load the preview flujo when the request is a draft
+    effect(() => {
+      const req      = this.request();
+      const tipoDocId = req?.tipoDocumentoId;
+      if (!req || req.status !== 'draft' || !tipoDocId) {
+        this.wfPreviewFlujo.set(null);
+        return;
+      }
+      const flujos = this.wfSvc.flujos();
+      if (!flujos.length) return;
+
+      const datos = this.buildDatosDocumento(req);
+      const matching =
+        flujos.find(f => f.activo && f.documento === tipoDocId && this.evalCondiciones(f.condiciones, datos)) ??
+        flujos.find(f => f.activo && f.documento === tipoDocId);
+      if (!matching?.id) { this.wfPreviewFlujo.set(null); return; }
+
+      // Skip fetch if we already have this flujo loaded
+      if (untracked(() => this.wfPreviewFlujo())?.id === matching.id) return;
+
+      if (matching.niveles.length > 0) {
+        this.wfPreviewFlujo.set(matching);
+        return;
+      }
+      this.wfPreviewLoading.set(true);
+      this.wfSvc.getFlujoById(matching.id).subscribe({
+        next:  f  => { this.wfPreviewFlujo.set(f); this.wfPreviewLoading.set(false); },
+        error: () => this.wfPreviewLoading.set(false),
+      });
     });
   }
 
   ngOnInit(): void {
     this.tiposDocSvc.load();
+    this.usuariosSvc.load();
+    this.inversionesSvc.load();
+    if (!this.wfSvc.flujos().length) this.wfSvc.loadFlujos();
+  }
+
+  reloadWfInstancia(): void {
+    this.wfLoadFailed.set(false);
     this.loadWfInstancia();
   }
 
-  private loadWfInstancia(): void {
-    const id = this.resolvedId();
+  private loadWfInstancia(retry = 3, delayMs = 0): void {
+    const id        = this.resolvedId();
+    const tipoDocId = untracked(() => this.request()?.tipoDocumentoId);
     if (!id) return;
-    this.wfSvc.getInstanciasSolicitud(id).subscribe({
-      next:  inst => this.wfInstancia.set(inst),
-      error: ()   => this.wfInstancia.set(null),
-    });
+
+    // tipoDocumentoId puede no estar disponible aún si loadById no ha terminado
+    if (!tipoDocId) {
+      this.wfInstanciaLoading.set(true);
+      setTimeout(() => {
+        if (untracked(() => this.request()?.tipoDocumentoId)) this.loadWfInstancia(retry);
+        else this.wfInstanciaLoading.set(false);
+      }, 800);
+      return;
+    }
+
+    this.wfInstanciaLoading.set(true);
+    this.wfLoadFailed.set(false);
+
+    const attempt = () => {
+      this.wfSvc.getInstanciasSolicitud(tipoDocId, id).subscribe({
+        next: inst => {
+          this.wfInstancia.set(inst);
+          this.wfInstanciaLoading.set(false);
+          this.wfSvc.getFlujoById(inst.flujoId).subscribe({
+            next:  flujo => this.wfFlujo.set(flujo),
+            error: ()    => this.wfFlujo.set(null),
+          });
+        },
+        error: (err) => {
+          const isNotFound = err.status === 404;
+          if (isNotFound) {
+            this.wfInstancia.set(null);
+            this.wfInstanciaLoading.set(false);
+            return;
+          }
+          if (retry > 0) {
+            setTimeout(() => this.loadWfInstancia(retry - 1), 2000);
+          } else {
+            this.wfInstancia.set(null);
+            this.wfInstanciaLoading.set(false);
+            this.wfLoadFailed.set(true);
+          }
+        },
+      });
+    };
+
+    if (delayMs > 0) setTimeout(attempt, delayMs);
+    else attempt();
   }
 
   // ── Acciones de flujo ──────────────────────────────────────────────────────
@@ -122,6 +393,8 @@ export class PrDetailComponent implements OnInit {
     this.prService.enviar(id).subscribe({
       next: () => {
         this.prService.loadById(id);
+        this.wfFlujo.set(null);
+        this.loadWfInstancia(3, 1500);
         this.processing.set(false);
       },
       error: err => {
@@ -140,6 +413,7 @@ export class PrDetailComponent implements OnInit {
     this.wfSvc.aprobar(inst.id, this.approveComment() || undefined).subscribe({
       next: () => {
         this.prService.loadById(this.resolvedId());
+        this.wfFlujo.set(null);
         this.loadWfInstancia();
         this.showApproveModal.set(false);
         this.processing.set(false);
@@ -160,9 +434,26 @@ export class PrDetailComponent implements OnInit {
     this.wfSvc.rechazar(inst.id, this.rejectReason()).subscribe({
       next: () => {
         this.prService.loadById(this.resolvedId());
+        this.wfFlujo.set(null);
         this.loadWfInstancia();
         this.showRejectModal.set(false);
         this.processing.set(false);
+      },
+      error: err => {
+        this.actionError.set(err.error?.mensaje ?? err.error?.message ?? `Error ${err.status}`);
+        this.processing.set(false);
+      },
+    });
+  }
+
+  deleteRequest(req: PurchaseRequest): void {
+    if (!confirm(`¿Eliminar la solicitud ${req.requestNumber}? Esta acción no se puede deshacer.`)) return;
+    this.processing.set(true);
+    this.actionError.set('');
+    this.prService.delete(req.id).subscribe({
+      next: () => {
+        this.processing.set(false);
+        if (!this.isEmbedded()) this.router.navigate(['/solicitudes']);
       },
       error: err => {
         this.actionError.set(err.error?.mensaje ?? err.error?.message ?? `Error ${err.status}`);
@@ -177,6 +468,7 @@ export class PrDetailComponent implements OnInit {
     this.modalProveedor.set('');
     this.modalPrecio.set(null);
     this.modalFecha.set('');
+    this.modalNumeroOferta.set('');
     this.modalFileName.set('');
     this.modalFileSize.set(0);
     this.modalFileData.set('');
@@ -207,27 +499,121 @@ export class PrDetailComponent implements OnInit {
   savePresupuesto(): void {
     if (!this.modalValid) return;
     this.modalSaving.set(true);
-    const data: Omit<Presupuesto, 'id'> = {
+    const payload: ApiPresupuestoCreatePayload = {
       proveedor: this.modalProveedor().trim(),
       precio:    this.modalPrecio()!,
       fecha:     this.modalFecha(),
+      ...(this.modalNumeroOferta().trim() ? { numeroOferta: this.modalNumeroOferta().trim() } : {}),
       fileName:  this.modalFileName(),
       fileSize:  this.modalFileSize(),
       fileData:  this.modalFileData(),
     };
-    setTimeout(() => {
-      this.prService.addPresupuesto(this.resolvedId(), data);
-      this.showAddModal.set(false);
-      this.modalSaving.set(false);
-    }, 300);
+    this.prService.createPresupuesto(this.resolvedId(), payload).subscribe({
+      next: () => {
+        this.showAddModal.set(false);
+        this.modalSaving.set(false);
+      },
+      error: err => {
+        this.actionError.set(err.error?.mensaje ?? err.error?.message ?? `Error ${err.status}`);
+        this.modalSaving.set(false);
+      },
+    });
   }
 
-  openPresupuesto(p: Presupuesto): void {
-    const byteString = atob(p.fileData.split(',')[1]);
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
-    const blob = new Blob([ab], { type: 'application/pdf' });
-    window.open(URL.createObjectURL(blob), '_blank');
+  nivelEstadoLabel(estado: string): string {
+    const map: Record<string, string> = {
+      pendiente: 'Pendiente', esperando: 'Esperando',
+      aprobado: 'Aprobado', rechazado: 'Rechazado', saltado: 'Saltado',
+    };
+    return map[estado] ?? estado;
+  }
+
+  private buildDatosDocumento(req: PurchaseRequest): Record<string, unknown> {
+    // Prioridad en español tal como la almacena el backend
+    const prioridadEs: Record<string, string> = { low: 'baja', medium: 'media', high: 'alta', urgent: 'urgente' };
+    const prio = prioridadEs[req.priority] ?? req.priority;
+    return {
+      // Importe — todas las variantes que puede usar el admin al configurar el campo
+      importe:              req.totalAmount,
+      importeTotal:         req.totalAmount,
+      importe_total:        req.totalAmount,
+      total:                req.totalAmount,
+      totalAmount:          req.totalAmount,
+      // Departamento
+      departamento:              req.requesterDepartment,
+      solicitanteDepartamento:   req.requesterDepartment,
+      department:                req.requesterDepartment,
+      // Prioridad en español (backend) y en inglés (frontend)
+      prioridad:            prio,
+      priority:             req.priority,
+      // Inversión
+      inversion:            req.inversion ?? false,
+      // GIM
+      gimId:                req.gimId ?? null,
+      gim:                  req.gimId ?? null,
+      // Tipo documento
+      tipoDocumento:        req.tipoDocumentoId ?? '',
+      // Solicitante
+      solicitante:          req.requesterId,
+      solicitanteId:        req.requesterId,
+    };
+  }
+
+  private evalCondicion(c: { campo: string; operador: WfOperador; valor: string }, datos: Record<string, unknown>): boolean {
+    const val = datos[c.campo];
+    if (val === undefined || val === null) return false;
+    const ref = c.valor;
+    switch (c.operador) {
+      case '=':        return String(val) === ref;
+      case '!=':       return String(val) !== ref;
+      case '>':        return Number(val) > Number(ref);
+      case '<':        return Number(val) < Number(ref);
+      case '>=':       return Number(val) >= Number(ref);
+      case '<=':       return Number(val) <= Number(ref);
+      case 'in':       return ref.split(',').map(v => v.trim()).includes(String(val));
+      case 'contains': return String(val).toLowerCase().includes(ref.toLowerCase());
+      default:         return false;
+    }
+  }
+
+  private evalCondiciones(condiciones: WfCondicionFlujo[], datos: Record<string, unknown>): boolean {
+    if (!condiciones.length) return true;
+    const sorted = [...condiciones].sort((a, b) => a.orden - b.orden);
+    let result = this.evalCondicion(sorted[0], datos);
+    for (let i = 1; i < sorted.length; i++) {
+      const v = this.evalCondicion(sorted[i], datos);
+      result = sorted[i].logica === 'OR' ? result || v : result && v;
+    }
+    return result;
+  }
+
+  private nivelSaltado(condiciones: WfCondicionNivel[], datos: Record<string, unknown>): boolean {
+    const skipConds = condiciones.filter(c => c.accion === 'saltar');
+    if (!skipConds.length) return false;
+    const sorted = [...skipConds].sort((a, b) => a.orden - b.orden);
+    let result = this.evalCondicion(sorted[0], datos);
+    for (let i = 1; i < sorted.length; i++) {
+      const v = this.evalCondicion(sorted[i], datos);
+      result = sorted[i].logica === 'OR' ? result || v : result && v;
+    }
+    return result;
+  }
+
+  private resolveAprobador(
+    tipoAprobador: string,
+    aprobadorValor: string,
+    aprobadorNombre: string | undefined | null,
+    usuarios: ApiUsuario[],
+  ): string | undefined {
+    if (aprobadorNombre) return aprobadorNombre;
+    if (!aprobadorValor) return undefined;
+    if (tipoAprobador === 'departamento') return `Dpto. ${aprobadorValor}`;
+    if (tipoAprobador === 'rol') return aprobadorValor;
+    const u = usuarios.find(u => u.id === aprobadorValor || u.email === aprobadorValor);
+    return u?.nombre ?? aprobadorValor;
+  }
+
+  openPresupuesto(p: { fileUrl: string }): void {
+    window.open(p.fileUrl, '_blank');
   }
 }

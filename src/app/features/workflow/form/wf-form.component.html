@@ -99,9 +99,9 @@
               <ng-container *ngTemplateOutlet="campoSelect; context: { campo: c.campo, idx: i, nivel: -1, condIdx: -1 }" />
 
               <select class="cond-select"
-                [value]="c.operador" (change)="updateCondicion(i, 'operador', $any($event.target).value)">
+                (change)="updateCondicion(i, 'operador', $any($event.target).value)">
                 @for (op of operadores; track op.value) {
-                  <option [value]="op.value">{{ op.label }}</option>
+                  <option [value]="op.value" [selected]="op.value === c.operador">{{ op.label }}</option>
                 }
               </select>
 
@@ -109,9 +109,9 @@
               <ng-container *ngTemplateOutlet="valorInput; context: { campo: c.campo, valor: c.valor, idx: i, nivel: -1, condIdx: -1 }" />
 
               <select class="cond-select cond-logica"
-                [value]="c.logica" (change)="updateCondicion(i, 'logica', $any($event.target).value)">
-                <option value="AND">AND</option>
-                <option value="OR">OR</option>
+                (change)="updateCondicion(i, 'logica', $any($event.target).value)">
+                <option value="AND" [selected]="c.logica === 'AND'">AND</option>
+                <option value="OR"  [selected]="c.logica === 'OR'">OR</option>
               </select>
               <button class="icon-btn icon-btn-danger" (click)="removeCondicion(i)" title="Eliminar">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -198,11 +198,10 @@
                     <div class="form-field">
                       <label class="field-label">Tipo de aprobador</label>
                       <select class="field-input field-select"
-                        [value]="n.tipoAprobador"
                         (change)="updateNivel(i, 'tipoAprobador', $any($event.target).value)">
-                        <option value="usuario">Usuario específico</option>
-                        <option value="rol">Por rol</option>
-                        <option value="departamento">Por departamento</option>
+                        <option value="usuario"     [selected]="n.tipoAprobador === 'usuario'">Usuario específico</option>
+                        <option value="rol"         [selected]="n.tipoAprobador === 'rol'">Por rol</option>
+                        <option value="departamento" [selected]="n.tipoAprobador === 'departamento'">Por departamento</option>
                       </select>
                     </div>
 
@@ -214,11 +213,10 @@
                       </label>
                       @if (n.tipoAprobador === 'usuario') {
                         <select class="field-input field-select"
-                          [value]="n.aprobadorValor"
                           (change)="updateNivel(i, 'aprobadorValor', $any($event.target).value)">
                           <option value="">— Selecciona un usuario —</option>
                           @for (u of usuariosSvc.usuarios(); track u.id) {
-                            <option [value]="u.id">{{ u.nombre }} ({{ u.email }})</option>
+                            <option [value]="u.id" [selected]="u.id === n.aprobadorValor">{{ u.nombre }} ({{ u.email }})</option>
                           }
                         </select>
                       } @else {
@@ -265,23 +263,23 @@
                             <ng-container *ngTemplateOutlet="campoSelect; context: { campo: c.campo, idx: -1, nivel: i, condIdx: ci }" />
 
                             <select class="cond-select"
-                              [value]="c.operador" (change)="updateCondicionNivel(i, ci, 'operador', $any($event.target).value)">
+                              (change)="updateCondicionNivel(i, ci, 'operador', $any($event.target).value)">
                               @for (op of operadores; track op.value) {
-                                <option [value]="op.value">{{ op.label }}</option>
+                                <option [value]="op.value" [selected]="op.value === c.operador">{{ op.label }}</option>
                               }
                             </select>
 
                             <ng-container *ngTemplateOutlet="valorInput; context: { campo: c.campo, valor: c.valor, idx: -1, nivel: i, condIdx: ci }" />
 
                             <select class="cond-select cond-logica"
-                              [value]="c.logica" (change)="updateCondicionNivel(i, ci, 'logica', $any($event.target).value)">
-                              <option value="AND">AND</option>
-                              <option value="OR">OR</option>
+                              (change)="updateCondicionNivel(i, ci, 'logica', $any($event.target).value)">
+                              <option value="AND" [selected]="c.logica === 'AND'">AND</option>
+                              <option value="OR"  [selected]="c.logica === 'OR'">OR</option>
                             </select>
                             <select class="cond-select cond-accion"
-                              [value]="c.accion" (change)="updateCondicionNivel(i, ci, 'accion', $any($event.target).value)">
-                              <option value="saltar">Saltar</option>
-                              <option value="requerir">Requerir</option>
+                              (change)="updateCondicionNivel(i, ci, 'accion', $any($event.target).value)">
+                              <option value="saltar"   [selected]="c.accion === 'saltar'">Saltar</option>
+                              <option value="requerir" [selected]="c.accion === 'requerir'">Requerir</option>
                             </select>
                             <button class="icon-btn icon-btn-danger" (click)="removeCondicionNivel(i, ci)" title="Eliminar">
                               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -368,24 +366,22 @@
 <ng-template #valorInput let-campo="campo" let-valor="valor" let-idx="idx" let-nivel="nivel" let-condIdx="condIdx">
   @if (getCampoTipo(campo) === 'enum') {
     <select class="cond-select"
-      [value]="valor"
       (change)="nivel >= 0
         ? updateCondicionNivel(nivel, condIdx, 'valor', $any($event.target).value)
         : updateCondicion(idx, 'valor', $any($event.target).value)">
       <option value="">— Valor —</option>
       @for (v of getCampoEnums(campo); track v) {
-        <option [value]="v">{{ v }}</option>
+        <option [value]="v" [selected]="v === valor">{{ v }}</option>
       }
     </select>
   } @else if (getCampoTipo(campo) === 'boolean') {
     <select class="cond-select"
-      [value]="valor"
       (change)="nivel >= 0
         ? updateCondicionNivel(nivel, condIdx, 'valor', $any($event.target).value)
         : updateCondicion(idx, 'valor', $any($event.target).value)">
       <option value="">— Valor —</option>
-      <option value="true">Sí</option>
-      <option value="false">No</option>
+      <option value="true"  [selected]="valor === 'true'">Sí</option>
+      <option value="false" [selected]="valor === 'false'">No</option>
     </select>
   } @else if (getCampoTipo(campo) === 'number') {
     <input type="number" class="cond-input" placeholder="0"

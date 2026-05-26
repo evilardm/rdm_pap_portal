@@ -30,5 +30,6 @@ export interface ApiUsuarioUpdatePayload {
   nombre: string;
   departamento: string;
   esAdmin: boolean;
+  activo: boolean;
   permisos: ApiUsuarioPermiso[];
 }

@@ -102,6 +102,14 @@ export class AuthService {
     return s.modulos.some(m => m.modulo === key && m.puedeAprobar);
   }
 
+  canDelete(module: string): boolean {
+    const s = this.session.session();
+    if (!s) return false;
+    if (s.esAdmin) return true;
+    const key = MODULE_MAP[module] ?? module.toUpperCase();
+    return s.modulos.some(m => m.modulo === key && m.esAdminModulo);
+  }
+
   /** Legacy compatibility with old permission string format */
   hasPermission(action: string): boolean {
     const [module, perm] = action.split('.');

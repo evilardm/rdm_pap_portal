@@ -76,6 +76,21 @@
         </label>
       </div>
 
+      @if (isEdit()) {
+        <div class="form-field col-full">
+          <label class="toggle-row">
+            <div>
+              <div class="field-label" style="margin-bottom:2px">Usuario activo</div>
+              <div class="field-hint">Desactiva el usuario para impedir que inicie sesión sin eliminarlo.</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" formControlName="activo" />
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+        </div>
+      }
+
     </div>
   </div>
 

@@ -1,0 +1,218 @@
+@if (loading()) {
+  <div class="loading-state">
+    <svg class="spin" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 12a9 9 0 11-6.219-8.56"/>
+    </svg>
+    Cargando solicitud...
+  </div>
+} @else {
+
+<app-header title="Editar solicitud" subtitle="Modifica los datos y guarda los cambios">
+  <a [routerLink]="['/solicitudes', id]" class="btn-ghost">Cancelar</a>
+</app-header>
+
+<form [formGroup]="form" class="create-form">
+
+  <!-- General info -->
+  <div class="form-card">
+    <h2 class="card-title">Información general</h2>
+    <div class="form-grid">
+
+      <div class="form-field col-full">
+        <label class="field-label">Título <span class="required">*</span></label>
+        <input type="text" formControlName="titulo" class="field-input"
+          [class.error]="form.get('titulo')?.invalid && form.get('titulo')?.touched"
+          placeholder="Título de la solicitud" />
+        @if (form.get('titulo')?.invalid && form.get('titulo')?.touched) {
+          <span class="field-error">Mínimo 5 caracteres</span>
+        }
+      </div>
+
+      <div class="form-field col-full">
+        <label class="field-label">Descripción <span class="required">*</span></label>
+        <textarea formControlName="descripcion" class="field-input field-textarea"
+          rows="3" placeholder="Detalla el motivo de la solicitud..."></textarea>
+      </div>
+
+      <div class="form-field">
+        <label class="field-label">Tipo de documento</label>
+        <select formControlName="tipoDocumentoId" class="field-input field-select">
+          <option value="">— Sin tipo —</option>
+          @for (t of tiposDocumentoSvc.tiposDocumento(); track t.id) {
+            <option [value]="t.id">{{ t.nombre }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label class="field-label">Prioridad</label>
+        <select formControlName="prioridad" class="field-input field-select">
+          <option value="low">Baja</option>
+          <option value="medium">Media</option>
+          <option value="high">Alta</option>
+          <option value="urgent">Urgente</option>
+        </select>
+      </div>
+
+      <div class="form-field">
+        <label class="field-label">Proveedor</label>
+        <app-typeahead-input formControlName="proveedor"
+          [options]="proveedorOptions()" placeholder="Buscar proveedor..." inputClass="field-input" />
+      </div>
+
+      <div class="form-field">
+        <label class="field-label">Referencia</label>
+        <input type="text" formControlName="referencia" class="field-input" placeholder="Referencia interna..." />
+      </div>
+
+      <div class="form-field">
+        <label class="field-label">Orden de mantenimiento</label>
+        <input type="text" formControlName="ordenMantenimiento" class="field-input" placeholder="Ej. OM-2024-001" />
+      </div>
+
+      <div class="form-field">
+        <label class="field-label">Fecha entrega prevista</label>
+        <input type="date" formControlName="fechaEntregaPrevista" class="field-input" />
+      </div>
+
+      <div class="form-field">
+        <label class="field-label">Comprador</label>
+        <select formControlName="compradorId" class="field-input field-select">
+          <option value="">— Sin asignar —</option>
+          @for (u of compradores(); track u.id) {
+            <option [value]="u.id">{{ u.nombre }}</option>
+          }
+        </select>
+      </div>
+
+      <div class="form-field col-full">
+        <label class="field-label">Comentarios</label>
+        <textarea formControlName="comentarios" class="field-input field-textarea"
+          rows="2" placeholder="Comentarios adicionales..."></textarea>
+      </div>
+
+      <!-- Inversión -->
+      <div class="form-field col-full">
+        <label class="toggle-row">
+          <div>
+            <div class="field-label" style="margin-bottom:2px">Inversión</div>
+            <div class="field-hint">Marcar si esta solicitud corresponde a una inversión.</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" formControlName="inversion" />
+            <span class="toggle-slider"></span>
+          </label>
+        </label>
+      </div>
+
+      @if (form.get('inversion')?.value) {
+        <div class="form-field">
+          <label class="field-label">Código de inversión</label>
+          <app-typeahead-input formControlName="codigoInversion"
+            [options]="inversionOptions()"
+            placeholder="Buscar inversión..."
+            inputClass="field-input" />
+        </div>
+      }
+
+    </div>
+  </div>
+
+  <!-- Líneas -->
+  <div class="form-card">
+    <div class="card-header-row">
+      <h2 class="card-title">Partidas / artículos</h2>
+      <button type="button" class="btn-add-item" (click)="addLinea()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Agregar partida
+      </button>
+    </div>
+
+    <div class="items-table-wrapper">
+      <table class="items-table">
+        <thead>
+          <tr>
+            <th style="min-width:240px">Descripción</th>
+            <th style="width:90px">Cantidad</th>
+            <th style="width:100px">Unidad</th>
+            <th style="width:140px">Precio unitario</th>
+            <th style="width:130px">Subtotal</th>
+            <th style="width:44px"></th>
+          </tr>
+        </thead>
+        <tbody formArrayName="lineas">
+          @for (linea of lineas.controls; track $index; let i = $index) {
+            <tr [formGroupName]="i">
+              <td>
+                <app-typeahead-input formControlName="descripcion"
+                  [options]="articuloOptions()"
+                  [hasError]="!!(linea.get('descripcion')?.invalid && linea.get('descripcion')?.touched)"
+                  placeholder="Buscar artículo..." inputClass="cell-input" />
+              </td>
+              <td>
+                <input type="number" formControlName="cantidad" class="cell-input text-center" min="1" />
+              </td>
+              <td>
+                <select formControlName="unidad" class="cell-input">
+                  <option value="pza">pza</option>
+                  <option value="caja">caja</option>
+                  <option value="kg">kg</option>
+                  <option value="lt">lt</option>
+                  <option value="m">m</option>
+                  <option value="resma">resma</option>
+                  <option value="servicio">servicio</option>
+                  <option value="licencia">licencia</option>
+                </select>
+              </td>
+              <td>
+                <input type="number" formControlName="precioUnitario" class="cell-input text-right" min="0" />
+              </td>
+              <td class="subtotal-cell">{{ getSubtotal(i) | currency:'EUR':'symbol':'1.2-2' }}</td>
+              <td>
+                <button type="button" class="btn-remove-item" (click)="removeLinea(i)" [disabled]="lineas.length === 1">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                    <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="4" class="total-label">Total estimado</td>
+            <td class="total-value">{{ totalAmount | currency:'EUR':'symbol':'1.2-2' }}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  @if (error()) {
+    <div class="form-error-banner">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+      {{ error() }}
+    </div>
+  }
+
+  <div class="form-actions">
+    <a [routerLink]="['/solicitudes', id]" class="btn-ghost">Cancelar</a>
+    <button type="button" class="btn-submit" (click)="onSubmit()" [disabled]="saving()">
+      @if (saving()) {
+        <svg class="spinner" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12a9 9 0 11-6.219-8.56"/>
+        </svg>
+      }
+      {{ saving() ? 'Guardando...' : 'Guardar cambios' }}
+    </button>
+  </div>
+
+</form>
+
+}

@@ -4,9 +4,9 @@ import { Observable, map, switchMap, tap } from 'rxjs';
 import { API_BASE } from '../interceptors/api-key.interceptor';
 import {
   WfFlujo, WfNivel, WfCondicionFlujo, WfCondicionNivel,
-  WfCampoDocumento, WfPendiente, WfInstancia, WfPaso,
+  WfCampoDocumento, WfPendiente, WfInstancia, WfPaso, WfNivelResumen, WfEstadoNivel,
   ApiWfFlujo, ApiWfNivel, ApiWfCondicionFlujo, ApiWfCondicionNivel,
-  ApiWfInstancia, ApiWfPaso, ApiWfPendiente,
+  ApiWfInstancia, ApiWfPaso, ApiWfPendiente, ApiWfNivelResumen,
 } from '../models/workflow.model';
 
 function mapCondicionFlujo(c: ApiWfCondicionFlujo): WfCondicionFlujo {
@@ -135,9 +135,9 @@ export class WorkflowService {
     );
   }
 
-  getInstanciasSolicitud(solicitudId: string): Observable<WfInstancia> {
+  getInstanciasSolicitud(tipoDocumentoId: string, solicitudId: string): Observable<WfInstancia> {
     return this.http.get<ApiWfInstancia>(
-      `${API_BASE}/api/workflow/instancias/documento/solicitud/${solicitudId}`
+      `${API_BASE}/api/workflow/instancias/documento/${tipoDocumentoId}/${solicitudId}`
     ).pipe(map(i => this.mapInstancia(i)));
   }
 
@@ -170,6 +170,20 @@ export class WorkflowService {
     };
   }
 
+  private mapNivelResumen(n: ApiWfNivelResumen): WfNivelResumen {
+    return {
+      nivelId:        n.nivelId,
+      nivelNombre:    n.nivelNombre,
+      nivelOrden:     n.nivelOrden,
+      tipoAprobador:  n.tipoAprobador,
+      aprobadorValor: n.aprobadorValor,
+      estado:         n.estado as WfEstadoNivel,
+      aprobadorNombre: n.aprobadorNombre ?? undefined,
+      fechaAccion:    n.fechaAccion ? new Date(n.fechaAccion) : undefined,
+      comentario:     n.comentario ?? undefined,
+    };
+  }
+
   private mapInstancia(i: ApiWfInstancia): WfInstancia {
     return {
       id:               i.id,
@@ -185,6 +199,7 @@ export class WorkflowService {
       createdAt:        i.createdAt  ? new Date(i.createdAt)  : undefined,
       updatedAt:        i.updatedAt  ? new Date(i.updatedAt)  : undefined,
       pasos:            (i.pasos ?? []).map(p => this.mapPaso(p)),
+      niveles:          (i.niveles ?? []).map(n => this.mapNivelResumen(n)),
     };
   }
 

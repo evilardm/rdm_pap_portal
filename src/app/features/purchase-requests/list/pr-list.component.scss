@@ -259,6 +259,24 @@
   &:hover { background: #2dbe7e; }
 }
 
+.btn-delete {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: 1px solid #fca5a5;
+  border-radius: 5px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: #dc2626;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) { background: #fef2f2; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
 .table-card {
   background: #ffffff;
   flex: 1;
@@ -291,6 +309,70 @@
   &:hover { background: rgba(62, 207, 142, 0.08); }
 }
 
+// ── Column menu ───────────────────────────────────────────────────────────────
+
+.col-menu-wrapper { position: relative; }
+
+.col-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 200;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+  min-width: 190px;
+  padding: 4px 0;
+}
+
+.col-menu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.col-menu-reset {
+  background: none;
+  border: none;
+  font-size: 11px;
+  color: #3ecf8e;
+  cursor: pointer;
+  padding: 0;
+  &:hover { text-decoration: underline; }
+}
+
+.col-menu-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12.5px;
+  color: #374151;
+  cursor: pointer;
+  user-select: none;
+  &:hover { background: #f9fafb; }
+
+  input[type="checkbox"] { accent-color: #3ecf8e; cursor: pointer; flex-shrink: 0; }
+}
+
+.col-menu-hint {
+  padding: 6px 12px 5px;
+  font-size: 11px;
+  color: #9ca3af;
+  border-top: 1px solid #f3f4f6;
+  margin-top: 2px;
+}
+
+// ── Table ─────────────────────────────────────────────────────────────────────
+
 .table-wrapper { overflow-x: auto; }
 
 .data-table {
@@ -298,8 +380,9 @@
   border-collapse: collapse;
 
   th {
+    position: relative;
     text-align: left;
-    padding: 0 14px;
+    padding: 0 24px 0 14px;
     height: 34px;
     font-size: 12px;
     font-weight: 500;
@@ -307,6 +390,12 @@
     border-bottom: 1px solid #e5e7eb;
     white-space: nowrap;
     background: #ffffff;
+    user-select: none;
+
+    &.col-drag-over { border-left: 2px solid #3ecf8e; }
+    &[draggable] { cursor: grab; }
+
+    .th-label { display: flex; align-items: center; gap: 4px; }
 
     .col-type {
       display: inline-block;
@@ -316,9 +405,9 @@
       border: 1px solid #e5e7eb;
       border-radius: 3px;
       padding: 1px 4px;
-      margin-left: 4px;
       font-weight: 400;
       vertical-align: middle;
+      flex-shrink: 0;
     }
   }
 
@@ -328,9 +417,38 @@
     font-size: 12.5px;
     color: #374151;
     border-bottom: 1px solid #f3f4f6;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   tbody tr:last-child td { border-bottom: none; }
+}
+
+// ── Resize handle ─────────────────────────────────────────────────────────────
+
+.resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 1;
+
+  &::after {
+    content: '';
+    position: absolute;
+    right: 2px;
+    top: 20%;
+    bottom: 20%;
+    width: 2px;
+    background: transparent;
+    border-radius: 1px;
+    transition: background 0.15s;
+  }
+
+  &:hover::after { background: #d1d5db; }
 }
 
 .col-check {
@@ -351,6 +469,8 @@
 
   &:hover td { background: #f9fafb; }
   &:hover .row-check { opacity: 1; }
+  &.selected td { background: #eff6ff; }
+  &.selected .row-check { opacity: 1; }
 }
 
 .col-number {
@@ -360,6 +480,16 @@
 
 .text-primary { color: #111827 !important; }
 .text-muted { color: #9ca3af !important; }
+
+.inv-label {
+  font-size: 12px;
+  color: #374151;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+  max-width: 100%;
+}
 .text-mono {
   font-family: 'ui-monospace', 'Cascadia Code', 'Courier New', monospace;
   font-size: 12px !important;

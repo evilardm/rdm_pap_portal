@@ -105,6 +105,7 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
           { label: 'Proveedores', path: '/maestros/proveedores' },
           { label: 'Clientes',    path: '/maestros/clientes' },
           { label: 'Categorías',  path: '/maestros/categorias' },
+          { label: 'Inversiones', path: '/maestros/inversiones' },
         ],
       },
     ],

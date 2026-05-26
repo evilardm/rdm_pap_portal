@@ -25,9 +25,9 @@ import { CommonModule } from '@angular/common';
         </button>
       </div>
       <div class="pag-right">
-        <select class="pag-size" [value]="pageSize()" (change)="sizeChange(+$any($event.target).value)">
+        <select class="pag-size" (change)="sizeChange(+$any($event.target).value)">
           @for (opt of sizeOptions; track opt) {
-            <option [value]="opt">{{ opt }} filas</option>
+            <option [value]="opt" [selected]="opt === pageSize()">{{ opt }} filas</option>
           }
         </select>
         <span class="pag-count">{{ totalItems() }} registros</span>

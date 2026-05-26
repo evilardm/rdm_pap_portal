@@ -6,6 +6,17 @@ export interface Presupuesto {
   proveedor: string;
   precio: number;
   fecha: string;
+  numeroOferta?: string;
+  fileName: string;
+  fileSize: number;
+  fileUrl: string;
+}
+
+export interface PresupuestoCreatePayload {
+  proveedor: string;
+  precio: number;
+  fecha: string;
+  numeroOferta?: string;
   fileName: string;
   fileSize: number;
   fileData: string;
@@ -20,6 +31,8 @@ export interface RequestItem {
   subtotal: number;
   articuloId?: string;
   articuloNombre?: string;
+  articuloRefId?: string;
+  orden?: number;
 }
 
 export interface PurchaseRequest {
@@ -52,8 +65,11 @@ export interface PurchaseRequest {
   expectedDeliveryDate?: Date;
   referencia?: string;
   presupuestos?: Presupuesto[];
-  /** ID del paso de aprobación activo — necesario para POST /api/aprobaciones/{pasoId}/decidir */
   pasoId?: string;
+  gimId?: number;
+  inversion?: boolean;
+  codigoInversion?: string;
+  compradorId?: string;
 }
 
 export interface PurchaseRequestFilter {

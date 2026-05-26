@@ -61,6 +61,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/purchase-requests/detail/pr-detail.component').then(m => m.PrDetailComponent),
       },
+      {
+        path: 'solicitudes/:id/editar',
+        canActivate: [comprasWriteGuard],
+        loadComponent: () =>
+          import('./features/purchase-requests/edit/pr-edit.component').then(m => m.PrEditComponent),
+      },
       // Bandeja de aprobaciones
       {
         path: 'aprobaciones',
@@ -150,6 +156,12 @@ export const routes: Routes = [
         path: 'maestros/categorias/:id/editar',
         loadComponent: () =>
           import('./features/datos-maestros/categorias/form/categoria-form.component').then(m => m.CategoriaFormComponent),
+      },
+      {
+        path: 'maestros/inversiones',
+        canActivate: [maestrosReadGuard],
+        loadComponent: () =>
+          import('./features/datos-maestros/inversiones/list/inversiones-list.component').then(m => m.InversionesListComponent),
       },
       {
         path: 'maestros/tipos-documento',

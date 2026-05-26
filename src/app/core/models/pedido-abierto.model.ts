@@ -13,8 +13,16 @@ export interface DocumentoAdjunto {
   descripcion?: string;
   fileName: string;
   fileSize: number;
-  fileData: string;
+  fileUrl: string;
   uploadedAt: Date;
+}
+
+export interface DocumentoCreatePayload {
+  nombre: string;
+  descripcion?: string;
+  fileName: string;
+  fileSize: number;
+  fileData: string;
 }
 
 export interface PedidoAbierto {

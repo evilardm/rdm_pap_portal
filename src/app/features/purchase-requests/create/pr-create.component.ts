@@ -5,7 +5,6 @@ import { CommonModule } from '@angular/common';
 import { PurchaseRequestService, PRIORIDAD_TO_API } from '../../../core/services/purchase-request.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { DatosMaestrosService } from '../../../core/services/datos-maestros.service';
-import { UsuariosService } from '../../../core/services/usuarios.service';
 import { DepartamentosService } from '../../../core/services/departamentos.service';
 import { TiposDocumentoService } from '../../../core/services/tipos-compra.service';
 import { HeaderComponent } from '../../../shared/components/header/header.component';
@@ -24,19 +23,12 @@ export class PrCreateComponent implements OnInit {
   private prService  = inject(PurchaseRequestService);
   private auth       = inject(AuthService);
   private maestros   = inject(DatosMaestrosService);
-  private usuariosSvc = inject(UsuariosService);
   private router     = inject(Router);
   deptSvc            = inject(DepartamentosService);
   tiposDocumentoSvc  = inject(TiposDocumentoService);
 
   saving = signal(false);
   error  = signal('');
-
-  aprobadores = computed(() =>
-    this.usuariosSvc.usuarios()
-      .filter(u => u.esAdmin || u.permisos.some(p => p.puedeAprobar))
-      .map(u => ({ id: u.id, name: u.nombre, department: u.departamento }))
-  );
 
   proveedorOptions = computed(() =>
     this.maestros.proveedores().map(p => ({ label: p.nombre, sublabel: p.id, value: p.nombre }))
@@ -55,7 +47,6 @@ export class PrCreateComponent implements OnInit {
     supplier:           [''],
     referencia:         [''],
     ordenMantenimiento: [''],
-    aprobadorId:        [''],
     expectedDeliveryDate: [''],
     items: this.fb.array([this.createItem()]),
   });
@@ -78,7 +69,6 @@ export class PrCreateComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.usuariosSvc.load();
     this.deptSvc.load();
     this.tiposDocumentoSvc.load();
   }

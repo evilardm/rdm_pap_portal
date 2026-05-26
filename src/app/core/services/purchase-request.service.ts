@@ -5,11 +5,12 @@ import { AuthService } from './auth.service';
 import { map, switchMap, catchError, tap } from 'rxjs/operators';
 import { PaginatedResponse } from '../models/api.model';
 import {
-  ApiSolicitud, ApiSolicitudCreatePayload, ApiDecidirPayload,
+  ApiSolicitud, ApiSolicitudCreatePayload, ApiSolicitudUpdatePayload, ApiDecidirPayload,
+  ApiPresupuesto, ApiPresupuestoCreatePayload,
 } from '../models/api-solicitud.model';
 import {
   PurchaseRequest, RequestItem, RequestStatus, RequestPriority,
-  Presupuesto, PurchaseRequestFilter,
+  Presupuesto, PresupuestoCreatePayload, PurchaseRequestFilter,
 } from '../models/purchase-request.model';
 import { API_BASE } from '../interceptors/api-key.interceptor';
 
@@ -56,9 +57,15 @@ function mapSolicitud(s: ApiSolicitud): PurchaseRequest {
       subtotal:       l.subtotal ?? l.cantidad * l.precioUnitario,
       articuloId:     l.articuloId,
       articuloNombre: l.articuloNombre,
+      articuloRefId:  l.articuloRefId,
+      orden:          l.orden,
     })),
     tipoDocumentoId:       s.tipoDocumentoId,
     tipoDocumentoNombre:   s.tipoDocumentoNombre,
+    gimId:                 s.gimId,
+    inversion:             s.inversion,
+    codigoInversion:       s.codigoInversion,
+    compradorId:           s.compradorId,
     requesterId:           s.solicitanteId ?? '',
     requesterName:         s.solicitanteNombre ?? '',
     requesterDepartment:   s.solicitanteDepartamento ?? '',
@@ -67,11 +74,20 @@ function mapSolicitud(s: ApiSolicitud): PurchaseRequest {
     pasoId:                s.pasoId,
     comments:              s.comentarios,
     rejectionReason:       s.motivoRechazo,
-    createdAt:             s.creadoAt  ? new Date(s.creadoAt)  : new Date(),
-    updatedAt:             s.actualizadoAt ? new Date(s.actualizadoAt) : new Date(),
+    createdAt:             s.createdAt ? new Date(s.createdAt) : (s.creadoAt ? new Date(s.creadoAt) : new Date()),
+    updatedAt:             s.updatedAt ? new Date(s.updatedAt) : (s.actualizadoAt ? new Date(s.actualizadoAt) : new Date()),
     approvedAt:            s.aprobadoAt  ? new Date(s.aprobadoAt)  : undefined,
     rejectedAt:            s.rechazadoAt ? new Date(s.rechazadoAt) : undefined,
-    presupuestos:          [],
+    presupuestos: (s.presupuestos ?? []).map((p: ApiPresupuesto): Presupuesto => ({
+      id:           p.id,
+      proveedor:    p.proveedor,
+      precio:       p.precio,
+      fecha:        p.fecha,
+      numeroOferta: p.numeroOferta,
+      fileName:     p.fileName,
+      fileSize:     p.fileSize,
+      fileUrl:      p.fileUrl,
+    })),
   };
 }
 
@@ -112,7 +128,28 @@ export class PurchaseRequestService {
         return of<ApiSolicitud[]>([]);
       }),
     ).subscribe(items => {
-      this._requests.set(items.map(mapSolicitud));
+      const freshList = items.map(mapSolicitud);
+      // Preserve fields that the list endpoint omits but loadById already populated
+      this._requests.update(existing => {
+        if (!existing.length) return freshList;
+        const existingMap = new Map(existing.map(r => [r.id, r]));
+        return freshList.map(r => {
+          const prev = existingMap.get(r.id);
+          if (!prev) return r;
+          return {
+            ...r,
+            referencia:          r.referencia          ?? prev.referencia,
+            tipoDocumentoId:     r.tipoDocumentoId     ?? prev.tipoDocumentoId,
+            tipoDocumentoNombre: r.tipoDocumentoNombre ?? prev.tipoDocumentoNombre,
+            ordenMantenimiento:  r.ordenMantenimiento  ?? prev.ordenMantenimiento,
+            aprobadorId:         r.aprobadorId         ?? prev.aprobadorId,
+            aprobadorNombre:     r.aprobadorNombre      ?? prev.aprobadorNombre,
+            gimId:               r.gimId               ?? prev.gimId,
+            inversion:           r.inversion           ?? prev.inversion,
+            items:               r.items.length        ?  r.items : prev.items,
+          };
+        });
+      });
       this.loadingSolicitudes.set(false);
     });
   }
@@ -134,6 +171,22 @@ export class PurchaseRequestService {
   }
 
   // ── Escritura ────────────────────────────────────────────────────────────────
+
+  update(id: string, payload: ApiSolicitudUpdatePayload): Observable<PurchaseRequest> {
+    return this.http.put<ApiSolicitud>(`${API_BASE}/api/solicitudes/${id}`, payload).pipe(
+      tap(s => {
+        const mapped = mapSolicitud(s);
+        this._requests.update(list => list.map(r => r.id === id ? mapped : r));
+      }),
+      map(mapSolicitud),
+    );
+  }
+
+  delete(id: string): Observable<void> {
+    return this.http.delete<void>(`${API_BASE}/api/solicitudes/${id}`).pipe(
+      tap(() => this._requests.update(list => list.filter(r => r.id !== id))),
+    );
+  }
 
   create(payload: ApiSolicitudCreatePayload): Observable<PurchaseRequest> {
     return this.http.post<ApiSolicitud>(`${API_BASE}/api/solicitudes`, payload).pipe(
@@ -177,15 +230,27 @@ export class PurchaseRequestService {
     );
   }
 
-  /** Añade un presupuesto localmente (no hay endpoint definido aún) */
-  addPresupuesto(requestId: string, data: Omit<Presupuesto, 'id'>): void {
-    const newId = `p-${Date.now()}`;
-    this._requests.update(list =>
-      list.map(r => r.id !== requestId ? r : {
-        ...r,
-        updatedAt: new Date(),
-        presupuestos: [...(r.presupuestos ?? []), { id: newId, ...data }],
-      })
+  createPresupuesto(solicitudId: string, payload: ApiPresupuestoCreatePayload): Observable<Presupuesto> {
+    return this.http.post<ApiPresupuesto>(`${API_BASE}/api/solicitudes/${solicitudId}/presupuestos`, payload).pipe(
+      map((p): Presupuesto => ({
+        id:           p.id,
+        proveedor:    p.proveedor,
+        precio:       p.precio,
+        fecha:        p.fecha,
+        numeroOferta: p.numeroOferta,
+        fileName:     p.fileName,
+        fileSize:     p.fileSize,
+        fileUrl:      p.fileUrl,
+      })),
+      tap(presupuesto => {
+        this._requests.update(list =>
+          list.map(r => r.id !== solicitudId ? r : {
+            ...r,
+            updatedAt:    new Date(),
+            presupuestos: [...(r.presupuestos ?? []), presupuesto],
+          })
+        );
+      }),
     );
   }
 
@@ -200,7 +265,8 @@ export class PurchaseRequestService {
         if (
           !r.title.toLowerCase().includes(q) &&
           !r.requestNumber.toLowerCase().includes(q) &&
-          !r.requesterName.toLowerCase().includes(q)
+          !r.requesterName.toLowerCase().includes(q) &&
+          !(r.referencia ?? '').toLowerCase().includes(q)
         ) return false;
       }
       return true;

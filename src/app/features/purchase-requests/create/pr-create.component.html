@@ -77,15 +77,6 @@
         <input type="text" formControlName="ordenMantenimiento" class="field-input" placeholder="Ej. OM-2024-001" />
       </div>
 
-      <div class="form-field">
-        <label class="field-label">Aprobador</label>
-        <select formControlName="aprobadorId" class="field-input field-select">
-          <option value="">— Sin asignar —</option>
-          @for (u of aprobadores(); track u.id) {
-            <option [value]="u.id">{{ u.name }} ({{ u.department }})</option>
-          }
-        </select>
-      </div>
     </div>
   </div>
 

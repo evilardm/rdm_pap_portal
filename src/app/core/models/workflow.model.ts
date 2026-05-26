@@ -63,6 +63,7 @@ export interface WfInstancia {
   createdAt?: Date;
   updatedAt?: Date;
   pasos: WfPaso[];
+  niveles?: WfNivelResumen[];
 }
 
 export interface WfPaso {
@@ -154,6 +155,18 @@ export interface ApiWfPaso {
   createdAt?: string;
 }
 
+export interface ApiWfNivelResumen {
+  nivelId: string;
+  nivelNombre: string;
+  nivelOrden: number;
+  tipoAprobador: string;
+  aprobadorValor: string;
+  estado: string;
+  aprobadorNombre?: string | null;
+  fechaAccion?: string | null;
+  comentario?: string | null;
+}
+
 export interface ApiWfInstancia {
   id: string;
   flujoId: string;
@@ -168,6 +181,7 @@ export interface ApiWfInstancia {
   createdAt?: string;
   updatedAt?: string;
   pasos: ApiWfPaso[];
+  niveles?: ApiWfNivelResumen[];
 }
 
 export interface ApiWfPendiente {
@@ -188,6 +202,20 @@ export interface ApiWfPendiente {
 }
 
 // ── Frontend models for instances ─────────────────────────────────────────────
+
+export type WfEstadoNivel = 'aprobado' | 'rechazado' | 'pendiente' | 'saltado' | 'esperando';
+
+export interface WfNivelResumen {
+  nivelId: string;
+  nivelNombre: string;
+  nivelOrden: number;
+  tipoAprobador: string;
+  aprobadorValor: string;
+  estado: WfEstadoNivel;
+  aprobadorNombre?: string;
+  fechaAccion?: Date;
+  comentario?: string;
+}
 
 export interface WfPendiente {
   instanciaId: string;

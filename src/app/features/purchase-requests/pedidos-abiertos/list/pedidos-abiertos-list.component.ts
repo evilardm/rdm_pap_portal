@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, effect } from '@angular/core';
+import { Component, inject, signal, computed, effect, OnInit } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { PedidosAbiertosService } from '../../../../core/services/pedidos-abiertos.service';
@@ -13,7 +13,7 @@ import { PedidoAbiertoStatus } from '../../../../core/models/pedido-abierto.mode
   templateUrl: './pedidos-abiertos-list.component.html',
   styleUrl: './pedidos-abiertos-list.component.scss',
 })
-export class PedidosAbiertosListComponent {
+export class PedidosAbiertosListComponent implements OnInit {
   private router = inject(Router);
   svc = inject(PedidosAbiertosService);
 
@@ -21,6 +21,7 @@ export class PedidosAbiertosListComponent {
   filterStatus = signal<PedidoAbiertoStatus | 'all'>('all');
   page         = signal(1);
   pageSize     = signal(20);
+  deleting     = signal(false);
 
   statusOptions: { value: PedidoAbiertoStatus | 'all'; label: string }[] = [
     { value: 'all',       label: 'Todos los estados' },
@@ -56,6 +57,8 @@ export class PedidosAbiertosListComponent {
     effect(() => { this.search(); this.filterStatus(); this.page.set(1); }, { allowSignalWrites: true });
   }
 
+  ngOnInit(): void { this.svc.load(); }
+
   onPageSizeChange(n: number): void { this.pageSize.set(n); this.page.set(1); }
 
   clearFilters(): void {
@@ -69,9 +72,15 @@ export class PedidosAbiertosListComponent {
 
   onDelete(event: Event, id: string): void {
     event.stopPropagation();
-    if (confirm('¿Eliminar este pedido abierto?')) {
-      this.svc.delete(id);
-    }
+    if (!confirm('¿Eliminar este pedido abierto?')) return;
+    this.deleting.set(true);
+    this.svc.delete(id).subscribe({
+      next: () => this.deleting.set(false),
+      error: err => {
+        alert(err.error?.mensaje ?? err.error?.message ?? `Error ${err.status}`);
+        this.deleting.set(false);
+      },
+    });
   }
 
   statusLabel(s: PedidoAbiertoStatus): string {

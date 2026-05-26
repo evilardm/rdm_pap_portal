@@ -2,7 +2,6 @@
 
 <app-header [title]="req.requestNumber" [subtitle]="req.title">
   <app-status-badge [priority]="req.priority" />
-  <app-status-badge [status]="req.status" />
   @if (req.status === 'draft') {
     <button class="btn-submit-draft" (click)="submitDraft()" [disabled]="processing()">
       @if (processing()) {
@@ -27,6 +26,24 @@
       Rechazar
     </button>
   }
+  @if (auth.canWrite('compras') && !req.gimId) {
+    <a [routerLink]="['/solicitudes', req.id, 'editar']" class="btn-edit-doc">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+      </svg>
+      Editar
+    </a>
+  }
+  @if (auth.canDelete('compras')) {
+    <button class="btn-delete-doc" (click)="deleteRequest(req)" [disabled]="processing()">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+        <path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+      </svg>
+      Eliminar
+    </button>
+  }
   @if (!isEmbedded()) {
     <a routerLink="/solicitudes" class="btn-ghost">Volver</a>
   }
@@ -38,14 +55,12 @@
     <span class="meta-key">Solicitante</span>
     <span class="meta-val">{{ req.requesterName }}</span>
   </div>
-  <div class="meta-div"></div>
   <div class="meta-item">
     <span class="meta-key">Departamento</span>
     <span class="meta-val">{{ req.requesterDepartment }}</span>
   </div>
   @if (tipoDocumentoNombre()) {
-    <div class="meta-div"></div>
-    <div class="meta-item">
+    <div class="meta-item meta-item--wide">
       <span class="meta-key">Tipo de documento</span>
       <span class="meta-val">{{ tipoDocumentoNombre() }}</span>
       @if (tipoDocumentoDescripcion()) {
@@ -54,54 +69,52 @@
     </div>
   }
   @if (req.referencia) {
-    <div class="meta-div"></div>
     <div class="meta-item">
       <span class="meta-key">Referencia</span>
-      <span class="meta-val">{{ req.referencia }}</span>
+      <span class="meta-val mono-ref">{{ req.referencia }}</span>
     </div>
   }
   @if (req.supplier) {
-    <div class="meta-div"></div>
     <div class="meta-item">
       <span class="meta-key">Proveedor</span>
       <span class="meta-val">{{ req.supplier }}</span>
     </div>
   }
   @if (req.ordenMantenimiento) {
-    <div class="meta-div"></div>
     <div class="meta-item">
-      <span class="meta-key">Orden de mantenimiento</span>
+      <span class="meta-key">Orden mant.</span>
       <span class="meta-val mono">{{ req.ordenMantenimiento }}</span>
     </div>
   }
-  @if (aprobadorActual()) {
-    <div class="meta-div"></div>
-    <div class="meta-item">
-      <span class="meta-key">Pendiente de aprobación</span>
-      <span class="meta-val">{{ aprobadorActual() }}</span>
+  @if (inversionLabel()) {
+    <div class="meta-item meta-item--wide">
+      <span class="meta-key">Inversión</span>
+      <span class="meta-val mono-ref">{{ inversionLabel() }}</span>
     </div>
   }
-  <div class="meta-div"></div>
+  @if (aprobadorActual()) {
+    <div class="meta-item">
+      <span class="meta-key">Pdte. aprobación</span>
+      <span class="meta-val meta-val--approver">{{ aprobadorActual() }}</span>
+    </div>
+  }
   <div class="meta-item">
     <span class="meta-key">Fecha creación</span>
     <span class="meta-val">{{ req.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
   </div>
   @if (req.approvedAt) {
-    <div class="meta-div"></div>
     <div class="meta-item">
       <span class="meta-key">Fecha aprobación</span>
       <span class="meta-val success">{{ req.approvedAt | date:'dd/MM/yyyy HH:mm' }}</span>
     </div>
   }
   @if (req.rejectedAt) {
-    <div class="meta-div"></div>
     <div class="meta-item">
       <span class="meta-key">Fecha rechazo</span>
       <span class="meta-val danger">{{ req.rejectedAt | date:'dd/MM/yyyy HH:mm' }}</span>
     </div>
   }
   @if (req.approverName) {
-    <div class="meta-div"></div>
     <div class="meta-item">
       <span class="meta-key">Aprobado por</span>
       <span class="meta-val">{{ req.approverName }}</span>
@@ -109,40 +122,47 @@
   }
 </div>
 
-<!-- Historial — path estilo Salesforce -->
+<!-- Path bar dinámico basado en el workflow -->
 <div class="path-bar">
-  <div class="path-step path-step--complete">
-    <span class="path-label">Solicitud creada</span>
-    <span class="path-sub">{{ req.requesterName }} · {{ req.createdAt | date:'dd/MM/yyyy' }}</span>
-  </div>
-  <div class="path-step"
-       [ngClass]="{
-         'path-step--complete': req.status === 'approved' || req.status === 'rejected',
-         'path-step--current': req.status === 'pending',
-         'path-step--future':  req.status === 'draft'
-       }">
-    <span class="path-label">Enviada para revisión</span>
-    @if (req.status === 'pending') {
-      <span class="path-sub">
-        {{ aprobadorActual() ? 'Pendiente · ' + aprobadorActual() : 'Pendiente de aprobación' }}
-      </span>
-    }
-  </div>
-  <div class="path-step"
-       [ngClass]="{
-         'path-step--approved': req.status === 'approved',
-         'path-step--rejected': req.status === 'rejected',
-         'path-step--future':   req.status === 'draft' || req.status === 'pending'
-       }">
-    <span class="path-label">{{ req.status === 'rejected' ? 'Rechazada' : 'Aprobada' }}</span>
-    @if (req.status === 'approved') {
-      <span class="path-sub">{{ req.approverName }} · {{ req.approvedAt | date:'dd/MM/yyyy' }}</span>
-    }
-    @if (req.status === 'rejected') {
-      <span class="path-sub">{{ req.approverName }} · {{ req.rejectedAt | date:'dd/MM/yyyy' }}</span>
-    }
-  </div>
+  @for (step of pathSteps(); track $index) {
+    <div class="path-step"
+         [class.path-step--complete]="step.state === 'complete'"
+         [class.path-step--current]="step.state === 'current'"
+         [class.path-step--future]="step.state === 'future'"
+         [class.path-step--approved]="step.state === 'approved'"
+         [class.path-step--rejected]="step.state === 'rejected'"
+         [class.path-step--skipped]="step.state === 'skipped'">
+      <span class="path-label">{{ step.label }}</span>
+      @if (step.sub) {
+        <span class="path-sub">{{ step.sub }}{{ step.fecha | date:'dd/MM/yyyy' }}</span>
+      } @else if (step.aprobador && step.fecha) {
+        <span class="path-sub">{{ step.aprobador }} · {{ step.fecha | date:'dd/MM/yyyy' }}</span>
+      } @else if (step.aprobador) {
+        <span class="path-sub">{{ step.aprobador }}</span>
+      } @else if (step.fecha) {
+        <span class="path-sub">{{ step.fecha | date:'dd/MM/yyyy' }}</span>
+      }
+      @if (step.comentario) {
+        <span class="path-sub path-sub--comment">"{{ step.comentario }}"</span>
+      }
+    </div>
+  }
 </div>
+
+@if (wfLoadFailed() && request()?.status === 'pending') {
+  <div class="wf-load-retry-bar">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    <span>No se pudo cargar el flujo de aprobación</span>
+    <button class="btn-retry-wf" (click)="reloadWfInstancia()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
+      </svg>
+      Reintentar
+    </button>
+  </div>
+}
 
 <!-- Main content -->
 <div class="detail-main">
@@ -222,6 +242,7 @@
           <thead>
             <tr>
               <th>Proveedor</th>
+              <th>N° Oferta</th>
               <th>Precio presupuestado</th>
               <th>Fecha</th>
               <th>Archivo</th>
@@ -231,6 +252,7 @@
             @for (p of req.presupuestos; track p.id) {
               <tr>
                 <td class="pres-proveedor">{{ p.proveedor }}</td>
+                <td class="pres-oferta">{{ p.numeroOferta || '—' }}</td>
                 <td class="pres-precio">{{ p.precio | currency:'EUR':'symbol':'1.2-2' }}</td>
                 <td class="pres-fecha">{{ p.fecha | date:'dd/MM/yyyy' }}</td>
                 <td>
@@ -250,6 +272,67 @@
     }
   </div>
 
+  <!-- Workflow preview (borrador) -->
+  @if (!wfInstancia() && request()?.status === 'draft') {
+    @if (wfPreview(); as preview) {
+      <div class="info-card wf-preview-card">
+        <h3 class="info-card-title">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+          Vista previa del flujo
+          <span class="wf-flujo-nombre">{{ preview.flujoNombre }}</span>
+          <span class="wf-preview-badge">Vista previa</span>
+        </h3>
+        <div class="wf-steps">
+          @for (nivel of preview.niveles; track nivel.nombre) {
+            <div class="wf-step"
+              [class.wf-step--skipped]="nivel.saltado"
+              [class.wf-step--pending]="!nivel.saltado">
+              <div class="wf-step-icon">
+                @if (nivel.saltado) {
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="5 12 19 12"/><polyline points="13 6 19 12 13 18"/>
+                  </svg>
+                } @else {
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="4"/>
+                  </svg>
+                }
+              </div>
+              <div class="wf-step-body">
+                <span class="wf-step-nivel">{{ nivel.nombre }}</span>
+                @if (!nivel.saltado && nivel.aprobador) {
+                  <span class="wf-step-aprobador">{{ nivel.aprobador }}</span>
+                }
+              </div>
+              <div class="wf-step-meta">
+                @if (nivel.saltado) {
+                  <span class="wf-step-estado wf-estado--saltado">Se saltará</span>
+                } @else {
+                  <span class="wf-step-estado wf-estado--pendiente">Requerido</span>
+                }
+              </div>
+            </div>
+          }
+        </div>
+        <p class="wf-preview-note">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          Estimación basada en los datos actuales. El flujo real se fijará al enviar la solicitud.
+        </p>
+      </div>
+    } @else if (wfPreviewLoading()) {
+      <div class="wf-preview-loading">
+        <svg class="spin" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12a9 9 0 11-6.219-8.56"/>
+        </svg>
+        Cargando flujo de aprobación...
+      </div>
+    }
+  }
+
   <!-- Workflow steps -->
   @if (wfInstancia(); as inst) {
     <div class="info-card">
@@ -261,41 +344,78 @@
         <span class="wf-flujo-nombre">{{ inst.flujoNombre }}</span>
       </h3>
       <div class="wf-steps">
-        @for (paso of inst.pasos; track paso.id) {
-          <div class="wf-step"
-            [class.wf-step--pending]="paso.estado === 'pendiente'"
-            [class.wf-step--approved]="paso.estado === 'aprobado'"
-            [class.wf-step--rejected]="paso.estado === 'rechazado'"
-            [class.wf-step--skipped]="paso.estado === 'saltado'">
-            <div class="wf-step-icon">
-              @if (paso.estado === 'aprobado') {
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-              } @else if (paso.estado === 'rechazado') {
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              } @else if (paso.estado === 'saltado') {
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 12 19 12"/><polyline points="13 6 19 12 13 18"/></svg>
-              } @else {
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/></svg>
-              }
+        @if (wfNivelesResueltos(); as niveles) {
+          @for (nivel of niveles; track nivel.nivelId) {
+            <div class="wf-step"
+              [class.wf-step--pending]="nivel.estado === 'pendiente' || nivel.estado === 'esperando'"
+              [class.wf-step--approved]="nivel.estado === 'aprobado'"
+              [class.wf-step--rejected]="nivel.estado === 'rechazado'"
+              [class.wf-step--skipped]="nivel.estado === 'saltado'">
+              <div class="wf-step-icon">
+                @if (nivel.estado === 'aprobado') {
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                } @else if (nivel.estado === 'rechazado') {
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                } @else if (nivel.estado === 'saltado') {
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 12 19 12"/><polyline points="13 6 19 12 13 18"/></svg>
+                } @else {
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/></svg>
+                }
+              </div>
+              <div class="wf-step-body">
+                <span class="wf-step-nivel">{{ nivel.nivelNombre }}</span>
+                @if (nivel.aprobadorDisplay) {
+                  <span class="wf-step-aprobador">{{ nivel.aprobadorDisplay }}</span>
+                }
+                @if (nivel.comentario) {
+                  <span class="wf-step-comentario">{{ nivel.comentario }}</span>
+                }
+              </div>
+              <div class="wf-step-meta">
+                <span class="wf-step-estado wf-estado--{{ nivel.estado }}">{{ nivelEstadoLabel(nivel.estado) }}</span>
+                @if (nivel.fechaAccion) {
+                  <span class="wf-step-fecha">{{ nivel.fechaAccion | date:'dd/MM/yyyy HH:mm' }}</span>
+                }
+              </div>
             </div>
-            <div class="wf-step-body">
-              <span class="wf-step-nivel">{{ paso.nivelNombre }}</span>
-              @if (paso.aprobadorNombre) {
-                <span class="wf-step-aprobador">{{ paso.aprobadorNombre }}</span>
-              }
-              @if (paso.comentario) {
-                <span class="wf-step-comentario">{{ paso.comentario }}</span>
-              }
+          }
+        } @else {
+          @for (paso of inst.pasos; track paso.id) {
+            <div class="wf-step"
+              [class.wf-step--pending]="paso.estado === 'pendiente'"
+              [class.wf-step--approved]="paso.estado === 'aprobado'"
+              [class.wf-step--rejected]="paso.estado === 'rechazado'"
+              [class.wf-step--skipped]="paso.estado === 'saltado'">
+              <div class="wf-step-icon">
+                @if (paso.estado === 'aprobado') {
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                } @else if (paso.estado === 'rechazado') {
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                } @else if (paso.estado === 'saltado') {
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 12 19 12"/><polyline points="13 6 19 12 13 18"/></svg>
+                } @else {
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/></svg>
+                }
+              </div>
+              <div class="wf-step-body">
+                <span class="wf-step-nivel">{{ paso.nivelNombre }}</span>
+                @if (paso.aprobadorNombre) {
+                  <span class="wf-step-aprobador">{{ paso.aprobadorNombre }}</span>
+                }
+                @if (paso.comentario) {
+                  <span class="wf-step-comentario">{{ paso.comentario }}</span>
+                }
+              </div>
+              <div class="wf-step-meta">
+                <span class="wf-step-estado wf-estado--{{ paso.estado }}">
+                  {{ paso.estado === 'pendiente' ? 'Pendiente' : paso.estado === 'aprobado' ? 'Aprobado' : paso.estado === 'rechazado' ? 'Rechazado' : 'Saltado' }}
+                </span>
+                @if (paso.fechaAccion) {
+                  <span class="wf-step-fecha">{{ paso.fechaAccion | date:'dd/MM/yyyy HH:mm' }}</span>
+                }
+              </div>
             </div>
-            <div class="wf-step-meta">
-              <span class="wf-step-estado wf-estado--{{ paso.estado }}">
-                {{ paso.estado === 'pendiente' ? 'Pendiente' : paso.estado === 'aprobado' ? 'Aprobado' : paso.estado === 'rechazado' ? 'Rechazado' : 'Saltado' }}
-              </span>
-              @if (paso.fechaAccion) {
-                <span class="wf-step-fecha">{{ paso.fechaAccion | date:'dd/MM/yyyy HH:mm' }}</span>
-              }
-            </div>
-          </div>
+          }
         }
       </div>
     </div>
@@ -353,15 +473,21 @@
 
       <div class="modal-row">
         <div class="modal-field">
-          <label class="field-label">Precio presupuestado <span class="required">*</span></label>
-          <input type="number" class="modal-input" placeholder="0.00" min="0"
-            [ngModel]="modalPrecio()" (ngModelChange)="modalPrecio.set($event)" />
+          <label class="field-label">N° de oferta</label>
+          <input type="text" class="modal-input" placeholder="Ej. OF-2024-001"
+            [ngModel]="modalNumeroOferta()" (ngModelChange)="modalNumeroOferta.set($event)" />
         </div>
         <div class="modal-field">
           <label class="field-label">Fecha del presupuesto <span class="required">*</span></label>
           <input type="date" class="modal-input"
             [ngModel]="modalFecha()" (ngModelChange)="modalFecha.set($event)" />
         </div>
+      </div>
+
+      <div class="modal-field">
+        <label class="field-label">Precio presupuestado <span class="required">*</span></label>
+        <input type="number" class="modal-input" placeholder="0.00" min="0"
+          [ngModel]="modalPrecio()" (ngModelChange)="modalPrecio.set($event)" />
       </div>
 
       <div class="modal-field">

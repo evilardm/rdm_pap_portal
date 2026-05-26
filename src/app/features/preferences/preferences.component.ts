@@ -84,6 +84,7 @@ export class PreferencesComponent implements OnInit {
       nombre:       val.nombre!,
       departamento: val.departamento ?? '',
       esAdmin:      session.esAdmin,
+      activo:       true,
       permisos:     session.modulos,
     }).subscribe({
       next: () => {

@@ -2,11 +2,13 @@ export interface ApiSolicitudLinea {
   id?: string;
   articuloId?: string;
   articuloNombre?: string;
+  articuloRefId?: string;
   descripcion: string;
   cantidad: number;
   precioUnitario: number;
   unidad: string;
   subtotal?: number;
+  orden?: number;
 }
 
 export interface ApiSolicitud {
@@ -33,10 +35,17 @@ export interface ApiSolicitud {
   solicitanteId?: string;
   solicitanteNombre?: string;
   solicitanteDepartamento?: string;
+  gimId?: number;
+  inversion?: boolean;
+  codigoInversion?: string;
+  compradorId?: string;
+  createdAt?: string;
+  updatedAt?: string;
   creadoAt?: string;
   actualizadoAt?: string;
   aprobadoAt?: string;
   rechazadoAt?: string;
+  presupuestos?: ApiPresupuesto[];
 }
 
 export interface ApiSolicitudCreatePayload {
@@ -62,7 +71,56 @@ export interface ApiLineaPayload {
   unidad: string;
 }
 
+export interface ApiLineaUpdatePayload {
+  articuloId?: string;
+  articuloNombre?: string;
+  articuloRefId?: string;
+  descripcion: string;
+  cantidad: number;
+  precioUnitario: number;
+  unidad: string;
+  orden?: number;
+}
+
+export interface ApiSolicitudUpdatePayload {
+  titulo: string;
+  descripcion: string;
+  prioridad: string;
+  ordenMantenimiento?: string;
+  proveedorId?: string;
+  proveedorNombre?: string;
+  referencia?: string;
+  fechaEntregaPrevista?: string;
+  comentarios?: string;
+  tipoDocumentoId?: string;
+  inversion?: boolean;
+  codigoInversion?: string;
+  compradorId?: string;
+  lineas: ApiLineaUpdatePayload[];
+}
+
 export interface ApiDecidirPayload {
   decision: 'aprobada' | 'rechazada';
   comentario?: string;
+}
+
+export interface ApiPresupuesto {
+  id: string;
+  proveedor: string;
+  precio: number;
+  fecha: string;
+  numeroOferta?: string;
+  fileName: string;
+  fileSize: number;
+  fileUrl: string;
+}
+
+export interface ApiPresupuestoCreatePayload {
+  proveedor: string;
+  precio: number;
+  fecha: string;
+  numeroOferta?: string;
+  fileName: string;
+  fileSize: number;
+  fileData: string;
 }

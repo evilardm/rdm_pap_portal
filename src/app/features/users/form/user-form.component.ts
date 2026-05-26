@@ -47,6 +47,7 @@ export class UserFormComponent {
     password:     [''],
     departamento: [''],
     esAdmin:      [false],
+    activo:       [true],
     newPassword:  [''],
     permisos: this.fb.array(AVAILABLE_MODULES.map(m => this.newPermisoGroup(m.key))),
   });
@@ -80,7 +81,7 @@ export class UserFormComponent {
   private reinitialize(id: string | null): void {
     this.error.set('');
     this.saving.set(false);
-    this.form.reset({ nombre: '', email: '', password: '', departamento: '', esAdmin: false, newPassword: '' });
+    this.form.reset({ nombre: '', email: '', password: '', departamento: '', esAdmin: false, activo: true, newPassword: '' });
     AVAILABLE_MODULES.forEach((m, i) =>
       this.permisos.at(i).reset({
         modulo: m.key, puedeLeer: false, puedeEscribir: false, puedeAprobar: false, esAdminModulo: false,
@@ -108,7 +109,7 @@ export class UserFormComponent {
     this.loading.set(true);
     this.svc.getById(id).subscribe({
       next: u => {
-        this.form.patchValue({ nombre: u.nombre, email: u.email, departamento: u.departamento, esAdmin: u.esAdmin });
+        this.form.patchValue({ nombre: u.nombre, email: u.email, departamento: u.departamento, esAdmin: u.esAdmin, activo: u.activo ?? true });
         AVAILABLE_MODULES.forEach((m, i) => {
           const p = u.permisos.find(x => x.modulo === m.key);
           if (p) this.permisos.at(i).patchValue(p);
@@ -138,7 +139,7 @@ export class UserFormComponent {
     if (this.isEdit()) {
       this.svc.update(this.editId(), {
         nombre: val.nombre ?? '', departamento: val.departamento ?? '',
-        esAdmin: val.esAdmin ?? false, permisos,
+        esAdmin: val.esAdmin ?? false, activo: val.activo ?? true, permisos,
       }).subscribe({
         next: () => {
           const pwd = val.newPassword?.trim();
