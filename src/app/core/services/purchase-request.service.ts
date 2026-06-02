@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+﻿import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, forkJoin } from 'rxjs';
 import { AuthService } from './auth.service';
@@ -35,6 +35,10 @@ const PRIORIDAD_TO_API: Record<string, string> = {
 };
 
 function mapSolicitud(s: ApiSolicitud): PurchaseRequest {
+  const raw = s as any;
+  if (raw.oferta_gim !== undefined || raw.ofertaGim !== undefined || raw.gimId !== undefined) {
+    console.log('[mapSolicitud] gim fields:', { oferta_gim: raw.oferta_gim, ofertaGim: raw.ofertaGim, gimId: raw.gimId });
+  }
   return {
     id:                    s.id,
     requestNumber:         s.numeroSolicitud,
@@ -62,10 +66,13 @@ function mapSolicitud(s: ApiSolicitud): PurchaseRequest {
     })),
     tipoDocumentoId:       s.tipoDocumentoId,
     tipoDocumentoNombre:   s.tipoDocumentoNombre,
-    gimId:                 s.gimId,
+    gimId:                 (s as any).oferta_gim ?? s.ofertaGim ?? s.gimId,
     inversion:             s.inversion,
     codigoInversion:       s.codigoInversion,
     compradorId:           s.compradorId,
+    formaPagoId:           s.formaPagoId,
+    formaPagoNombre:       s.formaPagoNombre,
+    numeroPedido:          s.numeroPedido,
     requesterId:           s.solicitanteId ?? '',
     requesterName:         s.solicitanteNombre ?? '',
     requesterDepartment:   s.solicitanteDepartamento ?? '',
@@ -87,6 +94,7 @@ function mapSolicitud(s: ApiSolicitud): PurchaseRequest {
       fileName:     p.fileName,
       fileSize:     p.fileSize,
       fileUrl:      p.fileUrl,
+      comentarios:  p.comentarios,
     })),
   };
 }
@@ -145,7 +153,10 @@ export class PurchaseRequestService {
             aprobadorId:         r.aprobadorId         ?? prev.aprobadorId,
             aprobadorNombre:     r.aprobadorNombre      ?? prev.aprobadorNombre,
             gimId:               r.gimId               ?? prev.gimId,
+            requestNumber:       r.requestNumber       || prev.requestNumber,
+            title:               r.title               || prev.title,
             inversion:           r.inversion           ?? prev.inversion,
+            codigoInversion:     r.codigoInversion     ?? prev.codigoInversion,
             items:               r.items.length        ?  r.items : prev.items,
           };
         });
@@ -163,9 +174,10 @@ export class PurchaseRequestService {
       const mapped = mapSolicitud(s);
       this._requests.update(list => {
         const idx = list.findIndex(r => r.id === id);
-        return idx >= 0
-          ? list.map((r, i) => i === idx ? mapped : r)
-          : [mapped, ...list];
+        if (idx < 0) return [mapped, ...list];
+        const prev = list[idx];
+        const merged = s.presupuestos != null ? mapped : { ...mapped, presupuestos: prev.presupuestos };
+        return list.map((r, i) => i === idx ? merged : r);
       });
     });
   }
@@ -176,7 +188,10 @@ export class PurchaseRequestService {
     return this.http.put<ApiSolicitud>(`${API_BASE}/api/solicitudes/${id}`, payload).pipe(
       tap(s => {
         const mapped = mapSolicitud(s);
-        this._requests.update(list => list.map(r => r.id === id ? mapped : r));
+        this._requests.update(list => list.map(r => {
+          if (r.id !== id) return r;
+          return s.presupuestos != null ? mapped : { ...mapped, presupuestos: r.presupuestos };
+        }));
       }),
       map(mapSolicitud),
     );
@@ -230,6 +245,41 @@ export class PurchaseRequestService {
     );
   }
 
+  exportarSage(id: string): Observable<{ solicitudId: string; numeroSolicitud: string; numeroPedido: number }> {
+    return this.http.post<{ solicitudId: string; numeroSolicitud: string; numeroPedido: number }>(
+      `${API_BASE}/api/solicitudes/${id}/exportar-sage`, {}
+    ).pipe(
+      tap(res => this._requests.update(list =>
+        list.map(r => r.id === id ? { ...r, numeroPedido: res.numeroPedido } : r)
+      )),
+    );
+  }
+
+  loadPresupuestos(solicitudId: string): void {
+    this.http.get<ApiPresupuesto[]>(`${API_BASE}/api/solicitudes/${solicitudId}/presupuestos`).pipe(
+      catchError(() => of([] as ApiPresupuesto[])),
+    ).subscribe(items => {
+      const mapped = items.map((p): Presupuesto => ({
+        id: p.id, proveedor: p.proveedor, precio: p.precio, fecha: p.fecha,
+        numeroOferta: p.numeroOferta, fileName: p.fileName, fileSize: p.fileSize,
+        fileUrl: p.fileUrl, comentarios: p.comentarios,
+      }));
+      this._requests.update(list =>
+        list.map(r => r.id === solicitudId ? { ...r, presupuestos: mapped } : r)
+      );
+    });
+  }
+
+  deletePresupuesto(solicitudId: string, presupuestoId: string): Observable<void> {
+    return this.http.delete<void>(`${API_BASE}/api/solicitudes/${solicitudId}/presupuestos/${presupuestoId}`).pipe(
+      tap(() => this._requests.update(list =>
+        list.map(r => r.id === solicitudId ? {
+          ...r, presupuestos: (r.presupuestos ?? []).filter(p => p.id !== presupuestoId),
+        } : r)
+      )),
+    );
+  }
+
   createPresupuesto(solicitudId: string, payload: ApiPresupuestoCreatePayload): Observable<Presupuesto> {
     return this.http.post<ApiPresupuesto>(`${API_BASE}/api/solicitudes/${solicitudId}/presupuestos`, payload).pipe(
       map((p): Presupuesto => ({
@@ -241,6 +291,7 @@ export class PurchaseRequestService {
         fileName:     p.fileName,
         fileSize:     p.fileSize,
         fileUrl:      p.fileUrl,
+        comentarios:  p.comentarios,
       })),
       tap(presupuesto => {
         this._requests.update(list =>

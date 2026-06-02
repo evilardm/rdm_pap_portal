@@ -1,4 +1,4 @@
-:host {
+﻿:host {
   display: block;
   padding: 28px 32px;
   max-width: 1280px;
@@ -369,6 +369,20 @@ $arrow: 14px;
   &:hover { background: #f3f4f6; border-color: #d1d5db; }
 }
 
+.btn-export-sage {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #f0fdf4; border: 1px solid #86efac;
+  border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 500; color: #16a34a;
+  cursor: pointer; transition: all 0.15s;
+  &:hover:not(:disabled) { background: #dcfce7; border-color: #4ade80; }
+  &:disabled { opacity: 0.65; cursor: not-allowed; }
+}
+
+.meta-val--sage {
+  color: #16a34a;
+  font-weight: 600;
+}
+
 .btn-delete-doc {
   display: inline-flex; align-items: center; gap: 6px;
   background: none; border: 1px solid #fca5a5;
@@ -557,6 +571,21 @@ $arrow: 14px;
   padding: 4px 0;
 }
 
+.pres-gim-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding: 5px 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #1d4ed8;
+
+  strong { font-weight: 600; }
+}
+
 .presupuestos-table {
   width: 100%;
   border-collapse: collapse;
@@ -583,25 +612,32 @@ $arrow: 14px;
 }
 
 .pres-proveedor { color: #111827; font-weight: 500; }
-.pres-oferta    { font-family: 'ui-monospace', 'Courier New', monospace; font-size: 12px; color: #6b7280; }
+.pres-oferta      { font-family: 'ui-monospace', 'Courier New', monospace; font-size: 12px; color: #6b7280; }
+.pres-comentarios { font-size: 12px; color: #6b7280; max-width: 200px; white-space: normal; line-height: 1.4; }
 .pres-precio    { font-family: 'ui-monospace', 'Courier New', monospace; font-size: 12px; color: #374151; }
 .pres-fecha     { color: #6b7280; font-size: 12px; }
 
-.btn-view-pdf {
+.pres-actions      { width: 36px; text-align: center; }
+.btn-delete-pres {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  background: rgba(79, 70, 229, 0.06);
-  border: 1px solid rgba(79, 70, 229, 0.2);
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 6px;
-  padding: 4px 9px;
-  font-size: 12px;
-  color: #4f46e5;
+  color: #9ca3af;
   cursor: pointer;
   transition: all 0.15s;
-  white-space: nowrap;
 
-  &:hover { background: rgba(79, 70, 229, 0.12); }
+  &:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+  }
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 /* ── Add presupuesto modal extras ───────────────────────── */

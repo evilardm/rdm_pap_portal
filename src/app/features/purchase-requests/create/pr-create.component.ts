@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, OnInit } from '@angular/core';
+import { Component, inject, signal, computed, OnInit, Input, Output, EventEmitter } from '@angular/core';
 import { FormBuilder, FormArray, ReactiveFormsModule, Validators, FormGroup } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
@@ -26,6 +26,10 @@ export class PrCreateComponent implements OnInit {
   private router     = inject(Router);
   deptSvc            = inject(DepartamentosService);
   tiposDocumentoSvc  = inject(TiposDocumentoService);
+
+  @Input()  inlineMode = false;
+  @Output() saved      = new EventEmitter<string>();
+  @Output() cancelled  = new EventEmitter<void>();
 
   saving = signal(false);
   error  = signal('');
@@ -121,6 +125,7 @@ export class PrCreateComponent implements OnInit {
     this.prService.create(payload).subscribe({
       next: created => {
         this.saving.set(false);
+        if (this.inlineMode) { this.saved.emit(created.id); return; }
         this.router.navigate(['/solicitudes', created.id]);
         // TODO: llamar this.prService.enviar(created.id) cuando el backend implemente POST /api/solicitudes/{id}/enviar
       },

@@ -1,21 +1,21 @@
 import { Component, HostListener, inject, signal, computed, effect, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { PurchaseRequestService } from '../../../core/services/purchase-request.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { PrDetailComponent } from '../detail/pr-detail.component';
+import { PrCreateComponent } from '../create/pr-create.component';
 import { PaginatorComponent } from '../../../shared/components/paginator/paginator.component';
 import { PurchaseRequest, PurchaseRequestFilter, RequestStatus, RequestPriority } from '../../../core/models/purchase-request.model';
 import { InversionesService } from '../../../core/services/inversiones.service';
 
-interface Tab { id: string; label: string; }
+interface Tab { id: string; label: string; type: 'detail' | 'create'; }
 
 interface ColDef { key: string; label: string; visible: boolean; width: number; }
 
-const COL_KEY = 'rdm-pr-cols';
+const COL_KEY = 'rdm-pr-cols-v2';
 
 const DEFAULT_COLS: ColDef[] = [
   { key: 'requestNumber',       label: 'N° Solicitud', visible: true,  width: 130 },
@@ -26,7 +26,7 @@ const DEFAULT_COLS: ColDef[] = [
   { key: 'totalAmount',         label: 'Importe',       visible: true,  width: 100 },
   { key: 'approverName',        label: 'Aprobador',     visible: true,  width: 140 },
   { key: 'ordenMantenimiento',  label: 'Orden Mant.',   visible: false, width: 110 },
-  { key: 'codigoInversion',     label: 'Inversión',     visible: false, width: 200 },
+  { key: 'codigoInversion',     label: 'Inversión',     visible: true,  width: 200 },
   { key: 'priority',            label: 'Prioridad',     visible: true,  width: 95  },
   { key: 'status',              label: 'Estado',        visible: true,  width: 95  },
   { key: 'createdAt',           label: 'Fecha',         visible: true,  width: 100 },
@@ -48,7 +48,7 @@ function loadCols(): ColDef[] {
 @Component({
   selector: 'app-pr-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, StatusBadgeComponent, PrDetailComponent, PaginatorComponent],
+  imports: [CommonModule, FormsModule, StatusBadgeComponent, PrDetailComponent, PrCreateComponent, PaginatorComponent],
   templateUrl: './pr-list.component.html',
   styleUrl: './pr-list.component.scss',
 })
@@ -58,7 +58,9 @@ export class PrListComponent implements OnInit, OnDestroy {
   inversionesSvc = inject(InversionesService);
 
   filter = signal<PurchaseRequestFilter>({ status: 'all', priority: 'all', search: '' });
-  filteredRequests = computed(() => this.prService.getFiltered(this.filter()));
+  filteredRequests = computed(() =>
+    this.prService.getFiltered(this.filter()).filter(r => !!r.requestNumber)
+  );
 
   page     = signal(1);
   pageSize = signal(20);
@@ -113,7 +115,7 @@ export class PrListComponent implements OnInit, OnDestroy {
   }
 
   inversionLabel(req: PurchaseRequest): string {
-    if (!req.inversion || !req.codigoInversion) return '—';
+    if (!req.codigoInversion) return '—';
     const inv = this.inversionesSvc.inversiones().find(i => i.codigo === req.codigoInversion);
     return inv ? `${inv.codigo} — ${inv.descripcion}` : req.codigoInversion;
   }
@@ -251,9 +253,34 @@ export class PrListComponent implements OnInit, OnDestroy {
 
   openTab(req: PurchaseRequest): void {
     if (!this.openTabs().some(t => t.id === req.id)) {
-      this.openTabs.update(tabs => [...tabs, { id: req.id, label: req.requestNumber }]);
+      this.openTabs.update(tabs => [...tabs, { id: req.id, label: req.requestNumber, type: 'detail' }]);
     }
     this.activeTab.set(req.id);
+  }
+
+  private _createCount = 0;
+
+  openCreateTab(): void {
+    const id = `new-${++this._createCount}`;
+    this.openTabs.update(tabs => [...tabs, { id, label: 'Nueva solicitud', type: 'create' }]);
+    this.activeTab.set(id);
+  }
+
+  onCreateSaved(tabId: string, solicitudId: string): void {
+    const tabs = this.openTabs().map(t =>
+      t.id === tabId ? { id: solicitudId, label: '...', type: 'detail' as const } : t
+    );
+    this.openTabs.set(tabs);
+    this.activeTab.set(solicitudId);
+    // Actualiza el label con el número real una vez cargado el registro
+    const req = this.prService.requests().find(r => r.id === solicitudId);
+    if (req) {
+      this.openTabs.update(ts => ts.map(t => t.id === solicitudId ? { ...t, label: req.requestNumber } : t));
+    }
+  }
+
+  onCreateCancelled(tabId: string): void {
+    this.closeTab(new Event('cancel'), tabId);
   }
 
   closeTab(event: Event, id: string): void {

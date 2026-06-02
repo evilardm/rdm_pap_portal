@@ -295,6 +295,21 @@
   p { font-size: 13px; margin: 0; color: #9ca3af; }
 }
 
+.inline-create-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 28px 0;
+}
+
+.inline-create-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
 .btn-ghost {
   font-size: 12px;
   color: #3ecf8e;

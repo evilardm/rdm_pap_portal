@@ -107,6 +107,29 @@ export class WorkflowService {
     );
   }
 
+  duplicateFlujo(id: string): Observable<WfFlujo> {
+    return this.getFlujoById(id).pipe(
+      switchMap(src => this.createFlujo({
+        nombre:      `Copia de ${src.nombre}`,
+        modulo:      src.modulo,
+        documento:   src.documento,
+        descripcion: src.descripcion,
+        activo:      false,
+        condiciones: src.condiciones.map(c => ({
+          orden: c.orden, campo: c.campo, operador: c.operador, valor: c.valor, logica: c.logica,
+        })),
+        niveles: src.niveles.map(n => ({
+          orden: n.orden, nombre: n.nombre, tipoAprobador: n.tipoAprobador,
+          aprobadorValor: n.aprobadorValor, requiereTodos: n.requiereTodos,
+          condiciones: n.condiciones.map(nc => ({
+            orden: nc.orden, campo: nc.campo, operador: nc.operador,
+            valor: nc.valor, logica: nc.logica, accion: nc.accion,
+          })),
+        })),
+      })),
+    );
+  }
+
   deleteFlujo(id: string): Observable<void> {
     return this.http.delete<void>(`${API_BASE}/api/workflow/${id}`).pipe(
       tap(() => this.flujos.update(list => list.filter(x => x.id !== id))),

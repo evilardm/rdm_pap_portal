@@ -10,6 +10,7 @@ export interface Presupuesto {
   fileName: string;
   fileSize: number;
   fileUrl: string;
+  comentarios?: string;
 }
 
 export interface PresupuestoCreatePayload {
@@ -17,9 +18,10 @@ export interface PresupuestoCreatePayload {
   precio: number;
   fecha: string;
   numeroOferta?: string;
-  fileName: string;
-  fileSize: number;
-  fileData: string;
+  fileName?: string;
+  fileSize?: number;
+  fileData?: string;
+  comentarios?: string;
 }
 
 export interface RequestItem {
@@ -70,6 +72,9 @@ export interface PurchaseRequest {
   inversion?: boolean;
   codigoInversion?: string;
   compradorId?: string;
+  formaPagoId?: string;
+  formaPagoNombre?: string;
+  numeroPedido?: number;
 }
 
 export interface PurchaseRequestFilter {

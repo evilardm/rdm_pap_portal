@@ -36,9 +36,13 @@ export interface ApiSolicitud {
   solicitanteNombre?: string;
   solicitanteDepartamento?: string;
   gimId?: number;
+  ofertaGim?: number;
+  formaPagoId?: string;
+  formaPagoNombre?: string;
   inversion?: boolean;
   codigoInversion?: string;
   compradorId?: string;
+  numeroPedido?: number;
   createdAt?: string;
   updatedAt?: string;
   creadoAt?: string;
@@ -96,6 +100,7 @@ export interface ApiSolicitudUpdatePayload {
   inversion?: boolean;
   codigoInversion?: string;
   compradorId?: string;
+  formaPagoId?: string;
   lineas: ApiLineaUpdatePayload[];
 }
 
@@ -113,6 +118,7 @@ export interface ApiPresupuesto {
   fileName: string;
   fileSize: number;
   fileUrl: string;
+  comentarios?: string;
 }
 
 export interface ApiPresupuestoCreatePayload {
@@ -120,7 +126,8 @@ export interface ApiPresupuestoCreatePayload {
   precio: number;
   fecha: string;
   numeroOferta?: string;
-  fileName: string;
-  fileSize: number;
-  fileData: string;
+  fileName?: string;
+  fileSize?: number;
+  fileData?: string;
+  comentarios?: string;
 }

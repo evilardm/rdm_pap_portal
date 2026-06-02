@@ -6,13 +6,13 @@ import { CommonModule } from '@angular/common';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <header class="page-header">
-      <div class="header-left">
+    <header class="page-header" [class.actions-left]="actionsLeft">
+      <div class="header-actions">
+        <ng-content></ng-content>
+      </div>
+      <div class="header-titles">
         <h1 class="page-title">{{ title }}</h1>
         <p *ngIf="subtitle" class="page-subtitle">{{ subtitle }}</p>
-      </div>
-      <div class="header-right">
-        <ng-content></ng-content>
       </div>
     </header>
   `,
@@ -25,7 +25,7 @@ import { CommonModule } from '@angular/common';
       flex-wrap: wrap;
       gap: 12px;
     }
-    .header-left { display: flex; flex-direction: column; gap: 4px; }
+    .header-titles { display: flex; flex-direction: column; gap: 4px; }
     .page-title {
       font-size: 22px;
       font-weight: 600;
@@ -38,10 +38,17 @@ import { CommonModule } from '@angular/common';
       color: #6b7280;
       margin: 0;
     }
-    .header-right { display: flex; align-items: center; gap: 10px; }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+
+    /* Default: actions right, title left */
+    .page-header:not(.actions-left) { flex-direction: row-reverse; }
+
+    /* actionsLeft: actions left, title right — titles align right */
+    .page-header.actions-left .header-titles { text-align: right; }
   `]
 })
 export class HeaderComponent {
   @Input() title = '';
   @Input() subtitle = '';
+  @Input() actionsLeft = false;
 }

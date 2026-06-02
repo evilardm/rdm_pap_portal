@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, input, OnInit, effect, untracked } from '@angular/core';
+﻿﻿﻿import { Component, inject, signal, computed, input, OnInit, effect, untracked } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -15,7 +15,8 @@ import { HeaderComponent } from '../../../shared/components/header/header.compon
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { TypeaheadInputComponent } from '../../../shared/components/typeahead-input/typeahead-input.component';
 import { PurchaseRequest } from '../../../core/models/purchase-request.model';
-import { ApiPresupuestoCreatePayload } from '../../../core/models/api-solicitud.model';
+import { ApiPresupuestoCreatePayload, ApiSolicitudUpdatePayload, ApiLineaUpdatePayload } from '../../../core/models/api-solicitud.model';
+import { PRIORIDAD_TO_API } from '../../../core/services/purchase-request.service';
 
 @Component({
   selector: 'app-pr-detail',
@@ -57,7 +58,7 @@ export class PrDetailComponent implements OnInit {
     if (!req) return null;
     if (req.tipoDocumentoNombre) return req.tipoDocumentoNombre;
     const t = this.tipoDocumento();
-    return t ? `${t.nombre} (${t.codigo})` : (req.tipoDocumentoId ?? null);
+    return t ? `${t.nombre} (${t.codigo})` : null;
   });
 
   tipoDocumentoDescripcion = computed(() => this.tipoDocumento()?.descripcion ?? null);
@@ -81,7 +82,7 @@ export class PrDetailComponent implements OnInit {
     if (req.aprobadorId) {
       const u = usuarios.find(u => u.id === req.aprobadorId || u.email === req.aprobadorId);
       if (u) return u.nombre;
-      return req.aprobadorId; // fallback al ID/email en bruto
+      // Si no está en la lista (usuario no-admin), cae al check de la instancia WF
     }
 
     // 3. Usar datos de la instancia de workflow si está cargada
@@ -265,14 +266,19 @@ export class PrDetailComponent implements OnInit {
   rejectReason     = signal('');
   processing       = signal(false);
   actionError      = signal('');
+  exporting        = signal(false);
+
+  deletingPresupuesto = signal<string | null>(null);
 
   // Add presupuesto modal
   showAddModal      = signal(false);
   modalProveedor    = signal('');
+  modalProveedorId  = signal('');
   modalPrecio       = signal<number | null>(null);
   modalFecha        = signal('');
-  modalNumeroOferta = signal('');
-  modalFileName     = signal('');
+  modalNumeroOferta  = signal('');
+  modalComentarios   = signal('');
+  modalFileName      = signal('');
   modalFileSize     = signal(0);
   modalFileData     = signal('');
   modalSaving       = signal(false);
@@ -282,11 +288,19 @@ export class PrDetailComponent implements OnInit {
       const id = this.resolvedId();
       if (!id) return;
       this.prService.loadById(id);
+      this.prService.loadPresupuestos(id);
       this.wfInstancia.set(null);
       this.wfFlujo.set(null);
       this.wfLoadFailed.set(false);
       this.wfPreviewFlujo.set(null);
       this.loadWfInstancia();
+    });
+
+    // Fallback: cargar el tipo de documento individualmente si la lista no está disponible
+    effect(() => {
+      const id = this.request()?.tipoDocumentoId;
+      if (!id || this.tiposDocSvc.tiposDocumento().some(t => t.id === id)) return;
+      untracked(() => this.tiposDocSvc.loadOne(id));
     });
 
     // Load the preview flujo when the request is a draft
@@ -446,6 +460,22 @@ export class PrDetailComponent implements OnInit {
     });
   }
 
+  exportarSage(req: PurchaseRequest): void {
+    if (!confirm(`¿Exportar la solicitud ${req.requestNumber} a Sage ERP?`)) return;
+    this.exporting.set(true);
+    this.actionError.set('');
+    this.prService.exportarSage(req.id).subscribe({
+      next: res => {
+        this.exporting.set(false);
+        alert(`Exportada correctamente. N° Pedido Sage: ${res.numeroPedido}`);
+      },
+      error: err => {
+        this.actionError.set(err.error?.mensaje ?? err.error?.message ?? `Error ${err.status}`);
+        this.exporting.set(false);
+      },
+    });
+  }
+
   deleteRequest(req: PurchaseRequest): void {
     if (!confirm(`¿Eliminar la solicitud ${req.requestNumber}? Esta acción no se puede deshacer.`)) return;
     this.processing.set(true);
@@ -466,13 +496,21 @@ export class PrDetailComponent implements OnInit {
 
   openAddModal(): void {
     this.modalProveedor.set('');
+    this.modalProveedorId.set('');
     this.modalPrecio.set(null);
     this.modalFecha.set('');
     this.modalNumeroOferta.set('');
+    this.modalComentarios.set('');
     this.modalFileName.set('');
     this.modalFileSize.set(0);
     this.modalFileData.set('');
     this.showAddModal.set(true);
+  }
+
+  onModalProveedorChange(nombre: string): void {
+    this.modalProveedor.set(nombre);
+    const match = this.maestros.proveedores().find(p => p.nombre === nombre);
+    this.modalProveedorId.set(match?.id ?? '');
   }
 
   onModalFile(event: Event): void {
@@ -491,9 +529,8 @@ export class PrDetailComponent implements OnInit {
 
   get modalValid(): boolean {
     return !!this.modalProveedor().trim() &&
-           (this.modalPrecio() ?? 0) > 0 &&
-           !!this.modalFecha() &&
-           !!this.modalFileData();
+           Number(this.modalPrecio()) > 0 &&
+           !!this.modalFecha();
   }
 
   savePresupuesto(): void {
@@ -501,17 +538,21 @@ export class PrDetailComponent implements OnInit {
     this.modalSaving.set(true);
     const payload: ApiPresupuestoCreatePayload = {
       proveedor: this.modalProveedor().trim(),
-      precio:    this.modalPrecio()!,
+      precio:    Number(this.modalPrecio()),
       fecha:     this.modalFecha(),
       ...(this.modalNumeroOferta().trim() ? { numeroOferta: this.modalNumeroOferta().trim() } : {}),
-      fileName:  this.modalFileName(),
-      fileSize:  this.modalFileSize(),
-      fileData:  this.modalFileData(),
+      ...(this.modalComentarios().trim()  ? { comentarios:  this.modalComentarios().trim()  } : {}),
+      ...(this.modalFileData() ? {
+        fileName: this.modalFileName(),
+        fileSize: this.modalFileSize(),
+        fileData: this.modalFileData(),
+      } : {}),
     };
     this.prService.createPresupuesto(this.resolvedId(), payload).subscribe({
       next: () => {
         this.showAddModal.set(false);
         this.modalSaving.set(false);
+        this.syncProveedorFromPresupuesto();
       },
       error: err => {
         this.actionError.set(err.error?.mensaje ?? err.error?.message ?? `Error ${err.status}`);
@@ -610,10 +651,54 @@ export class PrDetailComponent implements OnInit {
     if (tipoAprobador === 'departamento') return `Dpto. ${aprobadorValor}`;
     if (tipoAprobador === 'rol') return aprobadorValor;
     const u = usuarios.find(u => u.id === aprobadorValor || u.email === aprobadorValor);
-    return u?.nombre ?? aprobadorValor;
+    return u?.nombre;
+  }
+
+  private syncProveedorFromPresupuesto(): void {
+    const req     = this.request();
+    const provId  = this.modalProveedorId();
+    if (!req || !provId || req.proveedorId) return;
+    const updatePayload: ApiSolicitudUpdatePayload = {
+      titulo:               req.title,
+      descripcion:          req.description,
+      prioridad:            PRIORIDAD_TO_API[req.priority] ?? req.priority,
+      ordenMantenimiento:   req.ordenMantenimiento,
+      proveedorId:          provId,
+      proveedorNombre:      this.modalProveedor().trim(),
+      referencia:           req.referencia,
+      fechaEntregaPrevista: req.expectedDeliveryDate?.toISOString().split('T')[0],
+      tipoDocumentoId:      req.tipoDocumentoId,
+      inversion:            req.inversion,
+      codigoInversion:      req.codigoInversion,
+      compradorId:          req.compradorId,
+      formaPagoId:          req.formaPagoId,
+      lineas:               req.items.map((item): ApiLineaUpdatePayload => ({
+        articuloId:     item.articuloId,
+        articuloNombre: item.articuloNombre,
+        articuloRefId:  item.articuloRefId,
+        descripcion:    item.description,
+        cantidad:       item.quantity,
+        precioUnitario: item.unitPrice,
+        unidad:         item.unit,
+        orden:          item.orden,
+      })),
+    };
+    this.prService.update(req.id, updatePayload).subscribe();
   }
 
   openPresupuesto(p: { fileUrl: string }): void {
     window.open(p.fileUrl, '_blank');
+  }
+
+  onDeletePresupuesto(presupuestoId: string): void {
+    if (!confirm('¿Eliminar este presupuesto? Esta acción no se puede deshacer.')) return;
+    this.deletingPresupuesto.set(presupuestoId);
+    this.prService.deletePresupuesto(this.resolvedId(), presupuestoId).subscribe({
+      next: () => this.deletingPresupuesto.set(null),
+      error: err => {
+        this.actionError.set(err.error?.mensaje ?? err.error?.message ?? `Error ${err.status}`);
+        this.deletingPresupuesto.set(null);
+      },
+    });
   }
 }

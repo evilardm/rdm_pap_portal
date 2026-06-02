@@ -1,6 +1,8 @@
-<app-header title="Nueva solicitud de compra" subtitle="Completa los datos para enviar tu solicitud">
-  <a routerLink="/solicitudes" class="btn-ghost">Cancelar</a>
-</app-header>
+@if (!inlineMode) {
+  <app-header title="Nueva solicitud de compra" subtitle="Completa los datos para enviar tu solicitud">
+    <a routerLink="/solicitudes" class="btn-ghost">Cancelar</a>
+  </app-header>
+}
 
 <form [formGroup]="form" class="create-form">
   <!-- General info -->

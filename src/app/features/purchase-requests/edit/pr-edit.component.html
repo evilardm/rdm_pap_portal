@@ -85,6 +85,16 @@
         </select>
       </div>
 
+      <div class="form-field">
+        <label class="field-label">Forma de pago</label>
+        <select formControlName="formaPagoId" class="field-input field-select">
+          <option value="">— Sin especificar —</option>
+          @for (fp of formasPagoSvc.formasPago(); track fp.id) {
+            <option [value]="fp.id">{{ fp.nombre }}</option>
+          }
+        </select>
+      </div>
+
       <div class="form-field col-full">
         <label class="field-label">Comentarios</label>
         <textarea formControlName="comentarios" class="field-input field-textarea"

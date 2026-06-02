@@ -7,6 +7,7 @@ import { DatosMaestrosService } from '../../../core/services/datos-maestros.serv
 import { UsuariosService } from '../../../core/services/usuarios.service';
 import { TiposDocumentoService } from '../../../core/services/tipos-compra.service';
 import { InversionesService } from '../../../core/services/inversiones.service';
+import { FormasPagoService } from '../../../core/services/formas-pago.service';
 import { HeaderComponent } from '../../../shared/components/header/header.component';
 import { TypeaheadInputComponent } from '../../../shared/components/typeahead-input/typeahead-input.component';
 import { ApiSolicitudUpdatePayload, ApiLineaUpdatePayload } from '../../../core/models/api-solicitud.model';
@@ -31,6 +32,7 @@ export class PrEditComponent implements OnInit {
   private route      = inject(ActivatedRoute);
   tiposDocumentoSvc  = inject(TiposDocumentoService);
   inversionesSvc     = inject(InversionesService);
+  formasPagoSvc      = inject(FormasPagoService);
 
   saving  = signal(false);
   loading = signal(true);
@@ -69,6 +71,7 @@ export class PrEditComponent implements OnInit {
     inversion:          [false],
     codigoInversion:    [''],
     compradorId:        [''],
+    formaPagoId:        [''],
     lineas: this.fb.array([this.createLinea()]),
   });
 
@@ -102,6 +105,7 @@ export class PrEditComponent implements OnInit {
     this.usuariosSvc.load();
     this.tiposDocumentoSvc.load();
     this.inversionesSvc.load();
+    this.formasPagoSvc.load();
 
     this.prService.loadById(this.id);
 
@@ -133,6 +137,7 @@ export class PrEditComponent implements OnInit {
       inversion:          req.inversion ?? false,
       codigoInversion:    req.codigoInversion ?? '',
       compradorId:        req.compradorId ?? '',
+      formaPagoId:        req.formaPagoId ?? '',
     });
 
     // Rebuild lineas array
@@ -188,6 +193,7 @@ export class PrEditComponent implements OnInit {
       ...(val.fechaEntregaPrevista ? { fechaEntregaPrevista: val.fechaEntregaPrevista } : {}),
       ...(val.comentarios          ? { comentarios: val.comentarios }                   : {}),
       ...(val.compradorId          ? { compradorId: val.compradorId }                   : {}),
+      ...(val.formaPagoId          ? { formaPagoId: val.formaPagoId }                   : {}),
       inversion:       val.inversion ?? false,
       ...(val.codigoInversion ? { codigoInversion: val.codigoInversion } : {}),
     };

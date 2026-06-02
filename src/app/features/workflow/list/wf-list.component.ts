@@ -1,6 +1,6 @@
 import { Component, inject, signal, computed, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
 import { WorkflowService } from '../../../core/services/workflow.service';
 import { HeaderComponent } from '../../../shared/components/header/header.component';
 import { WfFlujo } from '../../../core/models/workflow.model';
@@ -13,10 +13,12 @@ import { WfFlujo } from '../../../core/models/workflow.model';
   styleUrl: './wf-list.component.scss',
 })
 export class WfListComponent implements OnInit {
+  private router = inject(Router);
   svc = inject(WorkflowService);
 
-  search   = signal('');
-  deleting = signal<string | null>(null);
+  search      = signal('');
+  deleting    = signal<string | null>(null);
+  duplicating = signal<string | null>(null);
 
   filtered = computed(() => {
     const q = this.search().toLowerCase();
@@ -30,6 +32,19 @@ export class WfListComponent implements OnInit {
 
   ngOnInit(): void {
     this.svc.loadFlujos();
+  }
+
+  onDuplicate(e: Event, flujo: WfFlujo): void {
+    e.stopPropagation();
+    if (!flujo.id) return;
+    this.duplicating.set(flujo.id);
+    this.svc.duplicateFlujo(flujo.id).subscribe({
+      next: copy => {
+        this.duplicating.set(null);
+        this.router.navigate(['/workflow', copy.id]);
+      },
+      error: () => this.duplicating.set(null),
+    });
   }
 
   onDelete(e: Event, flujo: WfFlujo): void {

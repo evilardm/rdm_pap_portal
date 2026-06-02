@@ -164,6 +164,12 @@ export const routes: Routes = [
           import('./features/datos-maestros/inversiones/list/inversiones-list.component').then(m => m.InversionesListComponent),
       },
       {
+        path: 'maestros/formas-pago',
+        canActivate: [maestrosReadGuard],
+        loadComponent: () =>
+          import('./features/datos-maestros/formas-pago/list/formas-pago-list.component').then(m => m.FormasPagoListComponent),
+      },
+      {
         path: 'maestros/tipos-documento',
         canActivate: [adminGuard],
         loadComponent: () =>

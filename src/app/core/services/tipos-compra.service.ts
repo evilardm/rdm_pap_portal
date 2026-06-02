@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+﻿import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 import { TipoDocumento } from '../models/tipo-compra.model';
@@ -31,6 +31,14 @@ export class TiposDocumentoService {
 
   getById(id: string): Observable<TipoDocumento> {
     return this.http.get<TipoDocumento>(`${API_BASE}/api/tipos-documento/${id}`);
+  }
+
+  loadOne(id: string): void {
+    if (this.tiposDocumento().some(t => t.id === id)) return;
+    this.http.get<TipoDocumento>(`${API_BASE}/api/tipos-documento/${id}`).subscribe({
+      next: t => this.tiposDocumento.update(list => [...list, t]),
+      error: () => {},
+    });
   }
 
   create(payload: Omit<TipoDocumento, 'id'>): Observable<TipoDocumento> {
