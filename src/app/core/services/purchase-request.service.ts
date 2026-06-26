@@ -1,4 +1,4 @@
-﻿import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of, forkJoin } from 'rxjs';
 import { AuthService } from './auth.service';
@@ -6,7 +6,7 @@ import { map, switchMap, catchError, tap } from 'rxjs/operators';
 import { PaginatedResponse } from '../models/api.model';
 import {
   ApiSolicitud, ApiSolicitudCreatePayload, ApiSolicitudUpdatePayload, ApiDecidirPayload,
-  ApiPresupuesto, ApiPresupuestoCreatePayload,
+  ApiPresupuesto, ApiPresupuestoCreatePayload, ApiCompradorPatchPayload,
 } from '../models/api-solicitud.model';
 import {
   PurchaseRequest, RequestItem, RequestStatus, RequestPriority,
@@ -35,6 +35,9 @@ const PRIORIDAD_TO_API: Record<string, string> = {
 };
 
 function mapSolicitud(s: ApiSolicitud): PurchaseRequest {
+  if ((s as any).compradorId || (s as any).CompradorId) {
+    console.log('[mapSolicitud comprador]', { compradorId: (s as any).compradorId, CompradorId: (s as any).CompradorId, compradorNombre: (s as any).compradorNombre, CompradorNombre: (s as any).CompradorNombre });
+  }
   const raw = s as any;
   if (raw.oferta_gim !== undefined || raw.ofertaGim !== undefined || raw.gimId !== undefined) {
     console.log('[mapSolicitud] gim fields:', { oferta_gim: raw.oferta_gim, ofertaGim: raw.ofertaGim, gimId: raw.gimId });
@@ -70,6 +73,7 @@ function mapSolicitud(s: ApiSolicitud): PurchaseRequest {
     inversion:             s.inversion,
     codigoInversion:       s.codigoInversion,
     compradorId:           s.compradorId,
+    compradorNombre:       s.compradorNombre ?? (s as any).comprador_nombre ?? (s as any).nombreComprador,
     formaPagoId:           s.formaPagoId,
     formaPagoNombre:       s.formaPagoNombre,
     numeroPedido:          s.numeroPedido,
@@ -95,6 +99,7 @@ function mapSolicitud(s: ApiSolicitud): PurchaseRequest {
       fileSize:     p.fileSize,
       fileUrl:      p.fileUrl,
       comentarios:  p.comentarios,
+      seleccionado: p.seleccionado,
     })),
   };
 }
@@ -255,6 +260,19 @@ export class PurchaseRequestService {
     );
   }
 
+  patchComprador(id: string, payload: ApiCompradorPatchPayload): Observable<PurchaseRequest> {
+    return this.http.patch<ApiSolicitud>(`${API_BASE}/api/solicitudes/${id}/comprador`, payload).pipe(
+      tap(s => {
+        const mapped = mapSolicitud(s);
+        this._requests.update(list => list.map(r => {
+          if (r.id !== id) return r;
+          return s.presupuestos != null ? mapped : { ...mapped, presupuestos: r.presupuestos };
+        }));
+      }),
+      map(mapSolicitud),
+    );
+  }
+
   loadPresupuestos(solicitudId: string): void {
     this.http.get<ApiPresupuesto[]>(`${API_BASE}/api/solicitudes/${solicitudId}/presupuestos`).pipe(
       catchError(() => of([] as ApiPresupuesto[])),
@@ -262,12 +280,35 @@ export class PurchaseRequestService {
       const mapped = items.map((p): Presupuesto => ({
         id: p.id, proveedor: p.proveedor, precio: p.precio, fecha: p.fecha,
         numeroOferta: p.numeroOferta, fileName: p.fileName, fileSize: p.fileSize,
-        fileUrl: p.fileUrl, comentarios: p.comentarios,
+        fileUrl: p.fileUrl, comentarios: p.comentarios, seleccionado: p.seleccionado,
       }));
       this._requests.update(list =>
         list.map(r => r.id === solicitudId ? { ...r, presupuestos: mapped } : r)
       );
     });
+  }
+
+  seleccionarPresupuesto(solicitudId: string, presupuestoId: string): Observable<Presupuesto> {
+    return this.http.patch<ApiPresupuesto>(
+      `${API_BASE}/api/solicitudes/${solicitudId}/presupuestos/${presupuestoId}/seleccionar`, {}
+    ).pipe(
+      map((p): Presupuesto => ({
+        id: p.id, proveedor: p.proveedor, precio: p.precio, fecha: p.fecha,
+        numeroOferta: p.numeroOferta, fileName: p.fileName, fileSize: p.fileSize,
+        fileUrl: p.fileUrl, comentarios: p.comentarios, seleccionado: p.seleccionado,
+      })),
+      tap(() => {
+        this._requests.update(list => list.map(r => {
+          if (r.id !== solicitudId) return r;
+          return {
+            ...r,
+            presupuestos: (r.presupuestos ?? []).map(p => ({
+              ...p, seleccionado: p.id === presupuestoId,
+            })),
+          };
+        }));
+      }),
+    );
   }
 
   deletePresupuesto(solicitudId: string, presupuestoId: string): Observable<void> {

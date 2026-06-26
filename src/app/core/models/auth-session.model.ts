@@ -8,6 +8,7 @@ export interface ModuloPermiso {
 
 export interface AuthSession {
   token: string;
+  userId: string;
   nombre: string;
   email: string;
   esAdmin: boolean;

@@ -11,7 +11,8 @@ import {
 export class UsuariosService {
   private http = inject(HttpClient);
 
-  usuarios = signal<ApiUsuario[]>([]);
+  usuarios    = signal<ApiUsuario[]>([]);
+  aprobadores = signal<Pick<ApiUsuario, 'id' | 'nombre'>[]>([]);
   loading  = signal(false);
   error    = signal('');
 
@@ -28,6 +29,14 @@ export class UsuariosService {
         this.error.set(err.error?.mensaje ?? err.error?.message ?? `Error ${err.status}`);
         this.loading.set(false);
       },
+    });
+  }
+
+  loadAprobadores(): void {
+    if (this.aprobadores().length) return;
+    this.http.get<Pick<ApiUsuario, 'id' | 'nombre'>[]>('/api/solicitudes/aprobadores').subscribe({
+      next: list => this.aprobadores.set(list),
+      error: () => {},
     });
   }
 

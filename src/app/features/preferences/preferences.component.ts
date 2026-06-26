@@ -51,21 +51,11 @@ export class PreferencesComponent implements OnInit {
   get modulos() { return this.sessionSvc.session()?.modulos ?? []; }
 
   ngOnInit(): void {
-    const emailId = this.auth.currentUser()?.id;   // equals email in current session
-    if (!emailId) { this.loading.set(false); return; }
-
-    this.usuariosSvc.getById(emailId).subscribe({
-      next: u => {
-        this.apiUserId.set(u.id);   // store real UUID from API
-        this.form.patchValue({ nombre: u.nombre, departamento: u.departamento ?? '' });
-        this.loading.set(false);
-      },
-      error: () => {
-        const s = this.sessionSvc.session();
-        this.form.patchValue({ nombre: s?.nombre ?? '' });
-        this.loading.set(false);
-      },
-    });
+    const s = this.sessionSvc.session();
+    if (!s?.userId) { this.loading.set(false); return; }
+    this.apiUserId.set(s.userId);
+    this.form.patchValue({ nombre: s.nombre, departamento: '' });
+    this.loading.set(false);
   }
 
   onSubmit(): void {

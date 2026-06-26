@@ -1,4 +1,4 @@
-﻿﻿﻿import { Component, inject, signal, computed, input, OnInit, effect, untracked } from '@angular/core';
+import { Component, inject, signal, computed, input, OnInit, effect, untracked } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -14,7 +14,7 @@ import { ApiUsuario } from '../../../core/models/api-usuario.model';
 import { HeaderComponent } from '../../../shared/components/header/header.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { TypeaheadInputComponent } from '../../../shared/components/typeahead-input/typeahead-input.component';
-import { PurchaseRequest } from '../../../core/models/purchase-request.model';
+import { PurchaseRequest, Presupuesto } from '../../../core/models/purchase-request.model';
 import { ApiPresupuestoCreatePayload, ApiSolicitudUpdatePayload, ApiLineaUpdatePayload } from '../../../core/models/api-solicitud.model';
 import { PRIORIDAD_TO_API } from '../../../core/services/purchase-request.service';
 
@@ -62,6 +62,15 @@ export class PrDetailComponent implements OnInit {
   });
 
   tipoDocumentoDescripcion = computed(() => this.tipoDocumento()?.descripcion ?? null);
+
+  compradorNombre = computed(() => {
+    const req = this.request();
+    console.log('[comprador]', req?.id, 'compradorId:', req?.compradorId, 'compradorNombre:', req?.compradorNombre);
+    if (!req?.compradorId) return null;
+    if (req.compradorNombre) return req.compradorNombre;
+    const u = this.usuariosSvc.usuarios().find(u => u.id === req.compradorId);
+    return u?.nombre ?? null;
+  });
 
   inversionLabel = computed(() => {
     const req = this.request();
@@ -248,6 +257,60 @@ export class PrDetailComponent implements OnInit {
     return steps;
   });
 
+  isComprador = computed(() => this.auth.isComprador());
+
+  // ── Comprador inline edit ──────────────────────────────────────────────────
+  compradorEditing          = signal(false);
+  compradorProveedorNombre  = signal('');
+  compradorProveedorId      = signal('');
+  compradorLineas           = signal<{ id: string; cantidad: number; precioUnitario: number }[]>([]);
+  compradorSaving           = signal(false);
+
+  compradorTotal = computed(() =>
+    this.compradorLineas().reduce((sum, l) => sum + l.cantidad * l.precioUnitario, 0)
+  );
+
+  startCompradorEdit(): void {
+    const req = this.request();
+    if (!req) return;
+    this.compradorProveedorNombre.set(req.supplier ?? '');
+    this.compradorProveedorId.set(req.proveedorId ?? '');
+    this.compradorLineas.set(req.items.map(i => ({
+      id: i.id, cantidad: i.quantity, precioUnitario: i.unitPrice,
+    })));
+    this.compradorEditing.set(true);
+  }
+
+  cancelCompradorEdit(): void { this.compradorEditing.set(false); }
+
+  saveCompradorEdit(): void {
+    const id = this.resolvedId();
+    if (!id) return;
+    this.compradorSaving.set(true);
+    this.actionError.set('');
+    this.prService.patchComprador(id, {
+      proveedorId:     this.compradorProveedorId() || null,
+      proveedorNombre: this.compradorProveedorNombre().trim() || null,
+      lineas: this.compradorLineas(),
+    }).subscribe({
+      next: () => { this.compradorEditing.set(false); this.compradorSaving.set(false); },
+      error: err => {
+        this.actionError.set(err.error?.mensaje ?? err.error?.message ?? `Error ${err.status}`);
+        this.compradorSaving.set(false);
+      },
+    });
+  }
+
+  onCompradorProveedorChange(nombre: string): void {
+    this.compradorProveedorNombre.set(nombre);
+    const match = this.maestros.proveedores().find(p => p.nombre === nombre);
+    this.compradorProveedorId.set(match?.id ?? '');
+  }
+
+  updateCompradorLinea(i: number, field: 'cantidad' | 'precioUnitario', value: number): void {
+    this.compradorLineas.update(arr => arr.map((l, idx) => idx === i ? { ...l, [field]: value } : l));
+  }
+
   detailId   = input<string | undefined>(undefined);
   isEmbedded = input<boolean>(false);
 
@@ -259,6 +322,13 @@ export class PrDetailComponent implements OnInit {
     this.prService.requests().find(r => r.id === this.resolvedId())
   );
 
+  canSubmit = computed(() => {
+    const req = this.request();
+    if (!req) return false;
+    if (!req.presupuestos?.length) return true;
+    return (!!req.proveedorId || !!req.supplier) && req.totalAmount > 0;
+  });
+
   // Approve / Reject
   showApproveModal = signal(false);
   showRejectModal  = signal(false);
@@ -268,7 +338,9 @@ export class PrDetailComponent implements OnInit {
   actionError      = signal('');
   exporting        = signal(false);
 
-  deletingPresupuesto = signal<string | null>(null);
+  deletingPresupuesto        = signal<string | null>(null);
+  selectingPresupuesto       = signal<string | null>(null);
+  presupuestoSelectedWarning = signal<string | null>(null);
 
   // Add presupuesto modal
   showAddModal      = signal(false);
@@ -294,6 +366,14 @@ export class PrDetailComponent implements OnInit {
       this.wfLoadFailed.set(false);
       this.wfPreviewFlujo.set(null);
       this.loadWfInstancia();
+    });
+
+    // Cargar usuarios si hay compradorId, la lista está vacía y el usuario tiene permisos
+    effect(() => {
+      const compradorId = this.request()?.compradorId;
+      if (!compradorId || this.usuariosSvc.usuarios().length) return;
+      if (!this.auth.canDelete('compras') && !this.auth.isAdmin()) return;
+      untracked(() => this.usuariosSvc.load());
     });
 
     // Fallback: cargar el tipo de documento individualmente si la lista no está disponible
@@ -336,8 +416,9 @@ export class PrDetailComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.tiposDocSvc.load();
-    this.usuariosSvc.load();
+    if (this.auth.hasModule('compras')) this.tiposDocSvc.load();
+    if (this.auth.canDelete('compras') || this.auth.isAdmin()) this.usuariosSvc.load();
+    else this.usuariosSvc.loadAprobadores();
     this.inversionesSvc.load();
     if (!this.wfSvc.flujos().length) this.wfSvc.loadFlujos();
   }
@@ -349,7 +430,8 @@ export class PrDetailComponent implements OnInit {
 
   private loadWfInstancia(retry = 3, delayMs = 0): void {
     const id        = this.resolvedId();
-    const tipoDocId = untracked(() => this.request()?.tipoDocumentoId);
+    const req       = untracked(() => this.request());
+    const tipoDocId = req?.tipoDocumentoId;
     if (!id) return;
 
     // tipoDocumentoId puede no estar disponible aún si loadById no ha terminado
@@ -362,11 +444,13 @@ export class PrDetailComponent implements OnInit {
       return;
     }
 
+    const tipoDoc = untracked(() => this.tiposDocSvc.tiposDocumento().find(t => t.id === tipoDocId));
+    const documentoTipo = tipoDoc?.codigo ?? tipoDocId;
     this.wfInstanciaLoading.set(true);
     this.wfLoadFailed.set(false);
 
     const attempt = () => {
-      this.wfSvc.getInstanciasSolicitud(tipoDocId, id).subscribe({
+      this.wfSvc.getInstanciasSolicitud(documentoTipo, id).subscribe({
         next: inst => {
           this.wfInstancia.set(inst);
           this.wfInstanciaLoading.set(false);
@@ -401,7 +485,7 @@ export class PrDetailComponent implements OnInit {
 
   submitDraft(): void {
     const id = this.resolvedId();
-    if (!id) return;
+    if (!id || !this.canSubmit()) return;
     this.processing.set(true);
     this.actionError.set('');
     this.prService.enviar(id).subscribe({
@@ -650,7 +734,8 @@ export class PrDetailComponent implements OnInit {
     if (!aprobadorValor) return undefined;
     if (tipoAprobador === 'departamento') return `Dpto. ${aprobadorValor}`;
     if (tipoAprobador === 'rol') return aprobadorValor;
-    const u = usuarios.find(u => u.id === aprobadorValor || u.email === aprobadorValor);
+    const all = usuarios.length ? usuarios : this.usuariosSvc.aprobadores();
+    const u = all.find(u => u.id === aprobadorValor || (u as any).email === aprobadorValor);
     return u?.nombre;
   }
 
@@ -688,6 +773,109 @@ export class PrDetailComponent implements OnInit {
 
   openPresupuesto(p: { fileUrl: string }): void {
     window.open(p.fileUrl, '_blank');
+  }
+
+  onSelectPresupuesto(p: Presupuesto): void {
+    const req = this.request();
+    if (!req) return;
+    this.selectingPresupuesto.set(p.id);
+    this.presupuestoSelectedWarning.set(null);
+    this.prService.seleccionarPresupuesto(req.id, p.id).subscribe({
+      next: () => {
+        this.selectingPresupuesto.set(null);
+        this.updatePricesAfterPresupuesto(p);
+      },
+      error: err => {
+        this.actionError.set(err.error?.mensaje ?? err.error?.message ?? `Error ${err.status}`);
+        this.selectingPresupuesto.set(null);
+      },
+    });
+  }
+
+  private updatePricesAfterPresupuesto(p: Presupuesto): void {
+    const req = this.request();
+    if (!req) return;
+
+    if (req.items.length === 1) {
+      const item     = req.items[0];
+      const newPrice = item.quantity > 0 ? +(p.precio / item.quantity).toFixed(4) : p.precio;
+
+      if (this.isComprador()) {
+        this.prService.patchComprador(req.id, {
+          proveedorId:     null,
+          proveedorNombre: p.proveedor,
+          lineas: [{ id: item.id, cantidad: item.quantity, precioUnitario: newPrice }],
+        }).subscribe({ error: err => this.actionError.set(err.error?.mensaje ?? `Error ${err.status}`) });
+      } else {
+        this.prService.update(req.id, {
+          titulo:               req.title,
+          descripcion:          req.description,
+          prioridad:            PRIORIDAD_TO_API[req.priority] ?? req.priority,
+          ordenMantenimiento:   req.ordenMantenimiento,
+          proveedorNombre:      p.proveedor,
+          referencia:           req.referencia,
+          fechaEntregaPrevista: req.expectedDeliveryDate?.toISOString().split('T')[0],
+          tipoDocumentoId:      req.tipoDocumentoId,
+          inversion:            req.inversion,
+          codigoInversion:      req.codigoInversion,
+          compradorId:          req.compradorId,
+          formaPagoId:          req.formaPagoId,
+          lineas: req.items.map((i): ApiLineaUpdatePayload => ({
+            articuloId:     i.articuloId,
+            articuloNombre: i.articuloNombre,
+            articuloRefId:  i.articuloRefId,
+            descripcion:    i.description,
+            cantidad:       i.quantity,
+            precioUnitario: i.id === item.id ? newPrice : i.unitPrice,
+            unidad:         i.unit,
+            orden:          i.orden,
+          })),
+        }).subscribe({ error: err => this.actionError.set(err.error?.mensaje ?? `Error ${err.status}`) });
+      }
+    } else if (req.items.length > 1) {
+      if (this.isComprador()) {
+        this.prService.patchComprador(req.id, {
+          proveedorId:     null,
+          proveedorNombre: p.proveedor,
+          lineas: req.items.map(i => ({ id: i.id, cantidad: i.quantity, precioUnitario: i.unitPrice })),
+        }).subscribe({
+          next:  () => this.prService.loadById(req.id),
+          error: err => this.actionError.set(err.error?.mensaje ?? `Error ${err.status}`),
+        });
+      } else {
+        this.prService.update(req.id, {
+          titulo:               req.title,
+          descripcion:          req.description,
+          prioridad:            PRIORIDAD_TO_API[req.priority] ?? req.priority,
+          ordenMantenimiento:   req.ordenMantenimiento,
+          proveedorNombre:      p.proveedor,
+          referencia:           req.referencia,
+          fechaEntregaPrevista: req.expectedDeliveryDate?.toISOString().split('T')[0],
+          tipoDocumentoId:      req.tipoDocumentoId,
+          inversion:            req.inversion,
+          codigoInversion:      req.codigoInversion,
+          compradorId:          req.compradorId,
+          formaPagoId:          req.formaPagoId,
+          lineas: req.items.map((i): ApiLineaUpdatePayload => ({
+            articuloId:     i.articuloId,
+            articuloNombre: i.articuloNombre,
+            articuloRefId:  i.articuloRefId,
+            descripcion:    i.description,
+            cantidad:       i.quantity,
+            precioUnitario: i.unitPrice,
+            unidad:         i.unit,
+            orden:          i.orden,
+          })),
+        }).subscribe({
+          next:  () => this.prService.loadById(req.id),
+          error: err => this.actionError.set(err.error?.mensaje ?? `Error ${err.status}`),
+        });
+      }
+      this.presupuestoSelectedWarning.set(
+        `Importe total actualizado a ${p.precio.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' })}. ` +
+        `Ajusta los precios unitarios de las líneas manualmente.`
+      );
+    }
   }
 
   onDeletePresupuesto(presupuestoId: string): void {

@@ -1,4 +1,4 @@
-﻿:host {
+:host {
   display: block;
   padding: 28px 32px;
   max-width: 1280px;
@@ -617,7 +617,96 @@ $arrow: 14px;
 .pres-precio    { font-family: 'ui-monospace', 'Courier New', monospace; font-size: 12px; color: #374151; }
 .pres-fecha     { color: #6b7280; font-size: 12px; }
 
+.pres-row--selected td { background: rgba(62, 207, 142, 0.05); }
+
+.pres-selected-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 6px;
+  color: #059669;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
 .pres-actions      { width: 36px; text-align: center; }
+.btn-select-pres {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: transparent;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  color: #374151;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: rgba(16, 185, 129, 0.08);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #059669;
+  }
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+.pres-row--selected {
+  background: rgba(62, 207, 142, 0.05);
+
+  td { border-bottom-color: rgba(62, 207, 142, 0.15) !important; }
+}
+
+.pres-selected-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 6px;
+  color: #059669;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pres-warning-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 10px 16px 4px;
+  padding: 10px 12px;
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  border-radius: 8px;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.5;
+
+  svg { flex-shrink: 0; margin-top: 2px; stroke: #d97706; }
+}
+
+.pres-warning-close {
+  margin-left: auto;
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  color: #92400e;
+  opacity: 0.6;
+  padding: 0 2px;
+
+  &:hover { opacity: 1; }
+}
+
 .btn-delete-pres {
   display: inline-flex;
   align-items: center;
@@ -717,4 +806,70 @@ $arrow: 14px;
 .not-found {
   text-align: center; padding: 60px 20px; color: #9ca3af;
   display: flex; flex-direction: column; align-items: center; gap: 16px;
+}
+
+/* ── Comprador inline edit ───────────────────────────────── */
+.card-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+
+  .info-card-title { margin-bottom: 0; }
+}
+
+.btn-edit-compra {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: none; border: 1px solid #e5e7eb;
+  border-radius: 7px; padding: 6px 12px; font-size: 12px; color: #6b7280;
+  cursor: pointer; transition: all 0.15s;
+  &:hover { background: #f3f4f6; border-color: #d1d5db; color: #374151; }
+}
+
+.comprador-proveedor-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+
+  .field-label { flex-shrink: 0; margin: 0; }
+  app-typeahead-input { flex: 1; }
+}
+
+.comprador-input { max-width: 320px; }
+
+.comprador-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.inline-qty {
+  width: 60px;
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  text-align: center;
+  font-family: inherit;
+  outline: none;
+  &:focus { border-color: #3ecf8e; background: #f0fdf4; }
+}
+
+.inline-price {
+  width: 90px;
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: 'ui-monospace', 'Courier New', monospace;
+  outline: none;
+  &:focus { border-color: #3ecf8e; background: #f0fdf4; }
 }

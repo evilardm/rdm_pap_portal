@@ -42,6 +42,7 @@ export interface ApiSolicitud {
   inversion?: boolean;
   codigoInversion?: string;
   compradorId?: string;
+  compradorNombre?: string;
   numeroPedido?: number;
   createdAt?: string;
   updatedAt?: string;
@@ -104,6 +105,12 @@ export interface ApiSolicitudUpdatePayload {
   lineas: ApiLineaUpdatePayload[];
 }
 
+export interface ApiCompradorPatchPayload {
+  proveedorId?: string | null;
+  proveedorNombre?: string | null;
+  lineas: { id: string; cantidad: number; precioUnitario: number }[];
+}
+
 export interface ApiDecidirPayload {
   decision: 'aprobada' | 'rechazada';
   comentario?: string;
@@ -119,6 +126,7 @@ export interface ApiPresupuesto {
   fileSize: number;
   fileUrl: string;
   comentarios?: string;
+  seleccionado?: boolean;
 }
 
 export interface ApiPresupuestoCreatePayload {

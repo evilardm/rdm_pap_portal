@@ -1,9 +1,10 @@
-﻿﻿﻿﻿﻿﻿@if (request(); as req) {
+﻿@if (request(); as req) {
 
 <app-header [title]="req.requestNumber" [subtitle]="req.title">
   <app-status-badge [priority]="req.priority" />
   @if (req.status === 'draft') {
-    <button class="btn-submit-draft" (click)="submitDraft()" [disabled]="processing()">
+    <button class="btn-submit-draft" (click)="submitDraft()" [disabled]="processing() || !canSubmit()"
+            [title]="!canSubmit() ? 'Indica proveedor e importe antes de enviar' : ''">
       @if (processing()) {
         <svg class="spinner" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 12a9 9 0 11-6.219-8.56"/>
@@ -118,6 +119,12 @@
     <span class="meta-key">Fecha creación</span>
     <span class="meta-val">{{ req.createdAt | date:'dd/MM/yyyy HH:mm' }}</span>
   </div>
+  @if (compradorNombre()) {
+    <div class="meta-item">
+      <span class="meta-key">Comprador</span>
+      <span class="meta-val">{{ compradorNombre() }}</span>
+    </div>
+  }
   @if (req.formaPagoNombre) {
     <div class="meta-item">
       <span class="meta-key">Forma de pago</span>
@@ -202,7 +209,29 @@
 
   <!-- Items table -->
   <div class="info-card">
-    <h3 class="info-card-title">Partidas de la solicitud</h3>
+    <div class="card-header-row">
+      <h3 class="info-card-title">Partidas de la solicitud</h3>
+      @if (isComprador() && !compradorEditing()) {
+        <button class="btn-edit-compra" (click)="startCompradorEdit()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+          Editar datos de compra
+        </button>
+      }
+    </div>
+    @if (compradorEditing()) {
+      <div class="comprador-proveedor-row">
+        <label class="field-label">Proveedor</label>
+        <app-typeahead-input
+          [options]="proveedorOptions()"
+          placeholder="Buscar proveedor por nombre..."
+          inputClass="modal-input comprador-input"
+          [ngModel]="compradorProveedorNombre()"
+          (ngModelChange)="onCompradorProveedorChange($event)" />
+      </div>
+    }
     <div class="table-wrapper">
       <table class="items-table">
         <thead>
@@ -220,21 +249,57 @@
             <tr class="item-row">
               <td class="text-muted">{{ i + 1 }}</td>
               <td class="text-primary">{{ item.description }}</td>
-              <td class="text-center">{{ item.quantity }}</td>
+              <td class="text-center">
+                @if (compradorEditing()) {
+                  <input type="number" class="inline-qty" min="0"
+                    [ngModel]="compradorLineas()[i]?.cantidad"
+                    (ngModelChange)="updateCompradorLinea(i, 'cantidad', +$event)" />
+                } @else {
+                  {{ item.quantity }}
+                }
+              </td>
               <td class="text-muted">{{ item.unit }}</td>
-              <td class="text-mono">{{ item.unitPrice | currency:'EUR':'symbol':'1.2-2' }}</td>
-              <td class="text-mono text-highlight">{{ item.subtotal | currency:'EUR':'symbol':'1.2-2' }}</td>
+              <td class="text-mono">
+                @if (compradorEditing()) {
+                  <input type="number" class="inline-price" min="0" step="0.01"
+                    [ngModel]="compradorLineas()[i]?.precioUnitario"
+                    (ngModelChange)="updateCompradorLinea(i, 'precioUnitario', +$event)" />
+                } @else {
+                  {{ item.unitPrice | currency:'EUR':'symbol':'1.2-2' }}
+                }
+              </td>
+              <td class="text-mono text-highlight">
+                @if (compradorEditing()) {
+                  {{ compradorLineas()[i].cantidad * compradorLineas()[i].precioUnitario | currency:'EUR':'symbol':'1.2-2' }}
+                } @else {
+                  {{ item.subtotal | currency:'EUR':'symbol':'1.2-2' }}
+                }
+              </td>
             </tr>
           }
         </tbody>
         <tfoot>
           <tr>
             <td colspan="5" class="total-label">Importe total</td>
-            <td class="total-value">{{ req.totalAmount | currency:'EUR':'symbol':'1.2-2' }}</td>
+            <td class="total-value">
+              @if (compradorEditing()) {
+                {{ compradorTotal() | currency:'EUR':'symbol':'1.2-2' }}
+              } @else {
+                {{ req.totalAmount | currency:'EUR':'symbol':'1.2-2' }}
+              }
+            </td>
           </tr>
         </tfoot>
       </table>
     </div>
+    @if (compradorEditing()) {
+      <div class="comprador-edit-actions">
+        <button class="btn-ghost" (click)="cancelCompradorEdit()">Cancelar</button>
+        <button class="btn-approve-confirm" (click)="saveCompradorEdit()" [disabled]="compradorSaving()">
+          {{ compradorSaving() ? 'Guardando...' : 'Guardar cambios' }}
+        </button>
+      </div>
+    }
   </div>
 
   <!-- Presupuestos de la solicitud -->
@@ -283,12 +348,15 @@
               <th>Fecha</th>
               <th>Comentarios</th>
               <th>Archivo</th>
+              @if (auth.canApprove('compras') || auth.canDelete('compras') || auth.isComprador()) {
+                <th>Seleccionar</th>
+              }
               <th></th>
             </tr>
           </thead>
           <tbody>
             @for (p of req.presupuestos; track p.id) {
-              <tr>
+              <tr [class.pres-row--selected]="p.seleccionado">
                 <td class="pres-proveedor">{{ p.proveedor }}</td>
                 <td class="pres-oferta">{{ p.numeroOferta || '—' }}</td>
                 <td class="pres-precio">{{ p.precio | currency:'EUR':'symbol':'1.2-2' }}</td>
@@ -307,6 +375,34 @@
                     <span class="pres-no-pdf">—</span>
                   }
                 </td>
+                @if (auth.canApprove('compras') || auth.canDelete('compras') || auth.isComprador()) {
+                  <td class="pres-actions">
+                    @if (p.seleccionado) {
+                      <span class="pres-selected-badge">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                          <polyline points="20 6 9 17 4 12"/>
+                        </svg>
+                        Seleccionado
+                      </span>
+                    } @else {
+                      <button class="btn-select-pres"
+                        (click)="onSelectPresupuesto(p)"
+                        [disabled]="selectingPresupuesto() === p.id"
+                        title="Usar este presupuesto">
+                        @if (selectingPresupuesto() === p.id) {
+                          <svg class="spinner" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                          </svg>
+                        } @else {
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        }
+                        Seleccionar
+                      </button>
+                    }
+                  </td>
+                }
                 <td class="pres-actions">
                   <button class="btn-delete-pres"
                     (click)="onDeletePresupuesto(p.id)"
@@ -328,6 +424,16 @@
             }
           </tbody>
         </table>
+        @if (presupuestoSelectedWarning()) {
+          <div class="pres-warning-banner">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            {{ presupuestoSelectedWarning() }}
+            <button class="pres-warning-close" (click)="presupuestoSelectedWarning.set(null)" title="Cerrar">×</button>
+          </div>
+        }
       </div>
     }
   </div>

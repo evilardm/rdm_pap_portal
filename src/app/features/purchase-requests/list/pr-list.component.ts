@@ -25,6 +25,7 @@ const DEFAULT_COLS: ColDef[] = [
   { key: 'requesterDepartment', label: 'Departamento',  visible: true,  width: 130 },
   { key: 'totalAmount',         label: 'Importe',       visible: true,  width: 100 },
   { key: 'approverName',        label: 'Aprobador',     visible: true,  width: 140 },
+  { key: 'compradorName',        label: 'Comprador',     visible: true,  width: 140 },
   { key: 'ordenMantenimiento',  label: 'Orden Mant.',   visible: false, width: 110 },
   { key: 'codigoInversion',     label: 'Inversión',     visible: true,  width: 200 },
   { key: 'priority',            label: 'Prioridad',     visible: true,  width: 95  },
@@ -99,7 +100,7 @@ export class PrListComponent implements OnInit, OnDestroy {
   readonly colTypeMap: Record<string, string> = {
     requestNumber: 'text', referencia: 'text', title: 'text',
     requesterName: 'text', requesterDepartment: 'text', totalAmount: 'numeric',
-    approverName: 'text', ordenMantenimiento: 'text', codigoInversion: 'text',
+    approverName: 'text', compradorName: 'text', ordenMantenimiento: 'text', codigoInversion: 'text',
     priority: 'enum', status: 'enum', createdAt: 'date',
   };
 
@@ -108,7 +109,7 @@ export class PrListComponent implements OnInit, OnDestroy {
       requestNumber: 'text-mono', totalAmount: 'text-mono', ordenMantenimiento: 'text-mono',
       title: 'text-primary', referencia: 'text-muted',
       requesterName: 'text-muted', requesterDepartment: 'text-muted',
-      approverName: 'text-muted', createdAt: 'text-muted',
+      approverName: 'text-muted', compradorName: 'text-muted', createdAt: 'text-muted',
       codigoInversion: 'text-muted',
     };
     return map[key] ?? '';

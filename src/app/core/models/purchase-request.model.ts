@@ -11,6 +11,7 @@ export interface Presupuesto {
   fileSize: number;
   fileUrl: string;
   comentarios?: string;
+  seleccionado?: boolean;
 }
 
 export interface PresupuestoCreatePayload {
@@ -72,6 +73,7 @@ export interface PurchaseRequest {
   inversion?: boolean;
   codigoInversion?: string;
   compradorId?: string;
+  compradorNombre?: string;
   formaPagoId?: string;
   formaPagoNombre?: string;
   numeroPedido?: number;

@@ -110,6 +110,21 @@ export class AuthService {
     return s.modulos.some(m => m.modulo === key && m.esAdminModulo);
   }
 
+  /** True when user only has read access to COMPRAS — acts as buyer (comprador) */
+  isComprador(): boolean {
+    const s = this.session.session();
+    if (!s || s.esAdmin) return false;
+    return s.modulos.some(m =>
+      m.modulo === 'COMPRAS' &&
+      m.puedeLeer &&
+      !m.puedeEscribir &&
+      !m.puedeAprobar &&
+      !m.esAdminModulo
+    );
+  }
+
+  readonly myUserId = computed(() => this.session.session()?.userId ?? null);
+
   /** Legacy compatibility with old permission string format */
   hasPermission(action: string): boolean {
     const [module, perm] = action.split('.');
