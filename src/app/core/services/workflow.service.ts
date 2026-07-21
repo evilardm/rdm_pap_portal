@@ -140,22 +140,34 @@ export class WorkflowService {
 
   getPendientes(): Observable<WfPendiente[]> {
     return this.http.get<ApiWfPendiente[]>(`${API_BASE}/api/workflow/instancias/pendientes`).pipe(
-      map(items => items.map(p => ({
-        instanciaId:        p.instanciaId,
-        pasoId:             p.pasoId,
-        flujoNombre:        p.flujoNombre ?? '',
-        nivelNombre:        p.nivelNombre ?? '',
-        modulo:             p.modulo,
-        documentoId:        p.documentoId,
-        solicitudNumero:    p.solicitudNumero ?? '',
-        solicitudTitulo:    p.solicitudTitulo ?? '',
-        solicitanteNombre:  p.solicitanteNombre ?? '',
-        tipoDocumentoNombre: p.tipoDocumentoNombre ?? '',
-        importeTotal:       p.importeTotal ?? 0,
-        departamento:       p.departamento ?? '',
-        createdAt:          p.createdAt ? new Date(p.createdAt) : undefined,
-      }))),
+      map(items => items.map(p => this.mapPendiente(p))),
     );
+  }
+
+  getResueltas(): Observable<WfPendiente[]> {
+    return this.http.get<ApiWfPendiente[]>(`${API_BASE}/api/workflow/instancias/resueltas`).pipe(
+      map(items => items.map(p => this.mapPendiente(p))),
+    );
+  }
+
+  private mapPendiente(p: ApiWfPendiente): WfPendiente {
+    return {
+      instanciaId:         p.instanciaId,
+      pasoId:              p.pasoId,
+      flujoNombre:         p.flujoNombre ?? '',
+      nivelNombre:         p.nivelNombre ?? '',
+      modulo:              p.modulo,
+      documentoId:         p.documentoId,
+      solicitudNumero:     p.solicitudNumero ?? '',
+      solicitudTitulo:     p.solicitudTitulo ?? '',
+      solicitanteNombre:   p.solicitanteNombre ?? '',
+      tipoDocumentoNombre: p.tipoDocumentoNombre ?? '',
+      importeTotal:        p.importeTotal ?? 0,
+      departamento:        p.departamento ?? '',
+      createdAt:           p.createdAt ? new Date(p.createdAt) : undefined,
+      estado:              p.estado,
+      fechaResolucion:     p.fechaResolucion ? new Date(p.fechaResolucion) : undefined,
+    };
   }
 
   getInstanciasSolicitud(tipoDocumentoId: string, solicitudId: string): Observable<WfInstancia> {

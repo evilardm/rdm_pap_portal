@@ -14,6 +14,7 @@ export interface ApiUsuario {
   esAdmin: boolean;
   activo?: boolean;
   creadoAt?: string;
+  codigoUsuarioGim?: string;
   permisos: ApiUsuarioPermiso[];
 }
 
@@ -23,6 +24,7 @@ export interface ApiUsuarioCreatePayload {
   password: string;
   departamento: string;
   esAdmin: boolean;
+  codigoUsuarioGim?: string;
   permisos: ApiUsuarioPermiso[];
 }
 
@@ -31,5 +33,6 @@ export interface ApiUsuarioUpdatePayload {
   departamento: string;
   esAdmin: boolean;
   activo: boolean;
+  codigoUsuarioGim?: string;
   permisos: ApiUsuarioPermiso[];
 }

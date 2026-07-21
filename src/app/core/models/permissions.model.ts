@@ -10,6 +10,8 @@ export interface NavItem {
   path: string;
   /** If set, the item is only shown when auth.hasPermission(requiredPermission) is true */
   requiredPermission?: string;
+  /** Use exact URL match for routerLinkActive (default: false) */
+  exactMatch?: boolean;
 }
 
 export interface NavGroup {
@@ -40,14 +42,15 @@ export const MODULE_DEFINITIONS: ModuleDefinition[] = [
       { id: 'compras.ver_todas',         label: 'Ver todas las solicitudes' },
       { id: 'compras.ver_precios',       label: 'Ver precios' },
     ],
-    extraRoutes: ['/aprobaciones'],
+    extraRoutes: ['/aprobaciones', '/aprobaciones/historico'],
     navGroups: [
       {
         label: 'MENÚ',
         items: [
           { label: 'Solicitudes',      path: '/solicitudes' },
           { label: 'Pedidos Abiertos', path: '/solicitudes/pedidos-abiertos' },
-          { label: 'Aprobaciones', path: '/aprobaciones', requiredPermission: 'compras.aprobar_solicitud' },
+          { label: 'Aprobaciones',         path: '/aprobaciones',           requiredPermission: 'compras.aprobar_solicitud', exactMatch: true },
+          { label: 'Histórico aprobadas',  path: '/aprobaciones/historico', requiredPermission: 'compras.aprobar_solicitud' },
         ],
       },
       {

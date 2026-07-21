@@ -2,6 +2,7 @@ import { Component, HostListener, inject, signal, computed, effect, OnInit, OnDe
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
 import { PurchaseRequestService } from '../../../core/services/purchase-request.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
@@ -57,6 +58,7 @@ export class PrListComponent implements OnInit, OnDestroy {
   prService      = inject(PurchaseRequestService);
   auth           = inject(AuthService);
   inversionesSvc = inject(InversionesService);
+  private route  = inject(ActivatedRoute);
 
   filter = signal<PurchaseRequestFilter>({ status: 'all', priority: 'all', search: '' });
   filteredRequests = computed(() =>
@@ -243,6 +245,10 @@ export class PrListComponent implements OnInit, OnDestroy {
   onPageSizeChange(n: number): void { this.pageSize.set(n); this.page.set(1); }
 
   ngOnInit(): void {
+    const initialStatus = this.route.snapshot.data['initialStatus'] as RequestStatus | undefined;
+    if (initialStatus) {
+      this.filter.set({ status: initialStatus, priority: 'all', search: '' });
+    }
     this.prService.loadSolicitudes();
     this.inversionesSvc.load();
   }

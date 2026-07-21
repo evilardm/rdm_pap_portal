@@ -74,6 +74,12 @@ export const routes: Routes = [
         loadComponent: () =>
           import('./features/aprobaciones/pendientes/aprobaciones-pendientes.component').then(m => m.AprobacionesPendientesComponent),
       },
+      {
+        path: 'aprobaciones/historico',
+        canActivate: [comprasApproveGuard],
+        loadComponent: () =>
+          import('./features/aprobaciones/historico/aprobaciones-historico.component').then(m => m.AprobacionesHistoricoComponent),
+      },
       // Ventas
       {
         path: 'ventas',

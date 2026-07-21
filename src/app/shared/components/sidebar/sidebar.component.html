@@ -20,7 +20,7 @@
           @if (!item.requiredPermission || auth.hasPermission(item.requiredPermission)) {
             <a [routerLink]="item.path"
                routerLinkActive="active"
-               [routerLinkActiveOptions]="{ exact: false }"
+               [routerLinkActiveOptions]="item.exactMatch ? { exact: true } : { exact: false }"
                class="nav-item">
               <span class="nav-item-dot"></span>
               <span class="item-label">{{ item.label }}</span>

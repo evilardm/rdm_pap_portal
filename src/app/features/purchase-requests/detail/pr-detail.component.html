@@ -4,7 +4,7 @@
   <app-status-badge [priority]="req.priority" />
   @if (req.status === 'draft') {
     <button class="btn-submit-draft" (click)="submitDraft()" [disabled]="processing() || !canSubmit()"
-            [title]="!canSubmit() ? 'Indica proveedor e importe antes de enviar' : ''">
+            [title]="canSubmitReason() ?? ''">
       @if (processing()) {
         <svg class="spinner" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 12a9 9 0 11-6.219-8.56"/>
@@ -36,7 +36,7 @@
       Editar
     </a>
   }
-  @if (req.status === 'approved' && !req.numeroPedido) {
+  @if (req.status === 'approved' && !req.numeroPedido && auth.canDelete('compras')) {
     <button class="btn-export-sage" (click)="exportarSage(req)" [disabled]="exporting()">
       @if (exporting()) {
         <svg class="spinner" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -270,7 +270,9 @@
               </td>
               <td class="text-mono text-highlight">
                 @if (compradorEditing()) {
-                  {{ compradorLineas()[i].cantidad * compradorLineas()[i].precioUnitario | currency:'EUR':'symbol':'1.2-2' }}
+                  <input type="number" class="inline-subtotal" min="0" step="0.01"
+                    [value]="compradorLineas()[i].cantidad * compradorLineas()[i].precioUnitario"
+                    (change)="updateCompradorLineaSubtotal(i, +$any($event.target).value)" />
                 } @else {
                   {{ item.subtotal | currency:'EUR':'symbol':'1.2-2' }}
                 }
@@ -293,6 +295,14 @@
       </table>
     </div>
     @if (compradorEditing()) {
+      @if (actionError()) {
+        <div class="comprador-edit-error">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          {{ actionError() }}
+        </div>
+      }
       <div class="comprador-edit-actions">
         <button class="btn-ghost" (click)="cancelCompradorEdit()">Cancelar</button>
         <button class="btn-approve-confirm" (click)="saveCompradorEdit()" [disabled]="compradorSaving()">
@@ -303,6 +313,15 @@
   </div>
 
   <!-- Presupuestos de la solicitud -->
+  @if (presupuestoMismatchWarning()) {
+    <div class="pres-mismatch-banner">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+      {{ presupuestoMismatchWarning() }}
+    </div>
+  }
   <div class="info-card">
     <div class="docs-header">
       <h3 class="info-card-title">
@@ -437,6 +456,73 @@
       </div>
     }
   </div>
+
+  <!-- Correos de oferta GIM -->
+  @if (request()?.gimId && auth.hasModule('compras')) {
+    <div class="info-card">
+      <h3 class="info-card-title">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+          <polyline points="22,6 12,13 2,6"/>
+        </svg>
+        Correos de oferta GIM
+        <span class="wf-flujo-nombre">{{ request()!.gimId }}</span>
+        @if (emailsGimLoading()) {
+          <svg class="spinner" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-left:4px">
+            <path d="M21 12a9 9 0 11-6.219-8.56"/>
+          </svg>
+        }
+      </h3>
+
+      @if (emailsGimError()) {
+        <p class="emails-empty">No se pudieron cargar los correos.</p>
+      } @else if (!emailsGimLoading() && !emailsGim().length) {
+        <p class="emails-empty">Sin correos asociados a esta oferta.</p>
+      } @else if (emailsGimConSrcdoc().length) {
+        <div class="emails-list">
+          @for (email of emailsGimConSrcdoc(); track email.messageId) {
+            <div class="email-item" [class.email-item--expanded]="emailExpandido() === email.messageId">
+              <button class="email-header" (click)="toggleEmail(email.messageId)">
+                <div class="email-meta">
+                  <span class="email-from">{{ email.from }}</span>
+                  <span class="email-subject">{{ email.subject }}</span>
+                </div>
+                <div class="email-right">
+                  <span class="email-date">{{ email.date | date:'dd/MM/yyyy HH:mm' }}</span>
+                  @if (email.tieneAdjunto) {
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="email-attach-icon" title="Tiene adjuntos">
+                      <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+                    </svg>
+                  }
+                  <svg class="email-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"/>
+                  </svg>
+                </div>
+              </button>
+              @if (emailExpandido() === email.messageId) {
+                <div class="email-body">
+                  <iframe [srcdoc]="email.srcdoc" class="email-iframe" sandbox="allow-same-origin" [title]="email.subject"></iframe>
+                  @if (email.adjuntos.length) {
+                    <div class="email-adjuntos">
+                      @for (adj of email.adjuntos; track adj.id) {
+                        <button class="btn-adjunto" (click)="abrirAdjunto(email.messageId, adj.id, adj.nombre)">
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                          </svg>
+                          {{ adj.nombre }}
+                        </button>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+      }
+    </div>
+  }
 
   <!-- Workflow preview (borrador) -->
   @if (!wfInstancia() && request()?.status === 'draft') {

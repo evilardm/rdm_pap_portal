@@ -58,10 +58,10 @@ function mapSolicitud(s: ApiSolicitud): PurchaseRequest {
     items: (s.lineas ?? []).map((l, i): RequestItem => ({
       id:             l.id ?? String(i),
       description:    l.descripcion,
-      quantity:       l.cantidad,
-      unitPrice:      l.precioUnitario,
+      quantity:       l.cantidad ?? 0,
+      unitPrice:      l.precioUnitario ?? 0,
       unit:           l.unidad,
-      subtotal:       l.subtotal ?? l.cantidad * l.precioUnitario,
+      subtotal:       l.subtotal ?? (l.cantidad ?? 0) * (l.precioUnitario ?? 0),
       articuloId:     l.articuloId,
       articuloNombre: l.articuloNombre,
       articuloRefId:  l.articuloRefId,
@@ -363,6 +363,12 @@ export class PurchaseRequestService {
       }
       return true;
     });
+  }
+
+  getSolicitudesAprobador(aprobadorId: string): Observable<PurchaseRequest[]> {
+    return this.loadAllPages<ApiSolicitud>(
+      `/api/solicitudes/aprobador/${encodeURIComponent(aprobadorId)}`
+    ).pipe(map(items => items.map(mapSolicitud)));
   }
 
   // ── Helper de paginación ─────────────────────────────────────────────────────

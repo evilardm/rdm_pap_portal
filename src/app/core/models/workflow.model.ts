@@ -199,6 +199,8 @@ export interface ApiWfPendiente {
   importeTotal?: number;
   departamento?: string;
   createdAt?: string;
+  estado?: string;
+  fechaResolucion?: string;
 }
 
 // ── Frontend models for instances ─────────────────────────────────────────────
@@ -231,4 +233,6 @@ export interface WfPendiente {
   importeTotal: number;
   departamento: string;
   createdAt?: Date;
+  estado?: string;
+  fechaResolucion?: Date;
 }

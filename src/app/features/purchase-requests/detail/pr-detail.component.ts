@@ -2,6 +2,7 @@ import { Component, inject, signal, computed, input, OnInit, effect, untracked }
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { PurchaseRequestService } from '../../../core/services/purchase-request.service';
 import { AuthService } from '../../../core/services/auth.service';
 import { DatosMaestrosService } from '../../../core/services/datos-maestros.service';
@@ -9,8 +10,10 @@ import { TiposDocumentoService } from '../../../core/services/tipos-compra.servi
 import { WorkflowService } from '../../../core/services/workflow.service';
 import { UsuariosService } from '../../../core/services/usuarios.service';
 import { InversionesService } from '../../../core/services/inversiones.service';
+import { EmailsGimService } from '../../../core/services/emails-gim.service';
 import { WfInstancia, WfFlujo, WfCondicionFlujo, WfCondicionNivel, WfOperador } from '../../../core/models/workflow.model';
 import { ApiUsuario } from '../../../core/models/api-usuario.model';
+import { EmailGim } from '../../../core/models/email-gim.model';
 import { HeaderComponent } from '../../../shared/components/header/header.component';
 import { StatusBadgeComponent } from '../../../shared/components/status-badge/status-badge.component';
 import { TypeaheadInputComponent } from '../../../shared/components/typeahead-input/typeahead-input.component';
@@ -34,6 +37,8 @@ export class PrDetailComponent implements OnInit {
   private wfSvc          = inject(WorkflowService);
   private usuariosSvc    = inject(UsuariosService);
   private inversionesSvc = inject(InversionesService);
+  private emailsGimSvc   = inject(EmailsGimService);
+  private sanitizer      = inject(DomSanitizer);
   auth = inject(AuthService);
 
   wfInstancia        = signal<WfInstancia | null>(null);
@@ -276,16 +281,27 @@ export class PrDetailComponent implements OnInit {
     this.compradorProveedorNombre.set(req.supplier ?? '');
     this.compradorProveedorId.set(req.proveedorId ?? '');
     this.compradorLineas.set(req.items.map(i => ({
-      id: i.id, cantidad: i.quantity, precioUnitario: i.unitPrice,
+      id: i.id, cantidad: i.quantity ?? 0, precioUnitario: i.unitPrice ?? 0,
     })));
     this.compradorEditing.set(true);
   }
 
-  cancelCompradorEdit(): void { this.compradorEditing.set(false); }
+  cancelCompradorEdit(): void { this.compradorEditing.set(false); this.actionError.set(''); }
 
   saveCompradorEdit(): void {
     const id = this.resolvedId();
     if (!id) return;
+
+    if (!this.compradorProveedorNombre().trim()) {
+      this.actionError.set('Debes indicar un proveedor antes de guardar.');
+      return;
+    }
+    const sinPrecio = this.compradorLineas().filter(l => !(l.precioUnitario > 0));
+    if (sinPrecio.length > 0) {
+      this.actionError.set('Todas las partidas deben tener un precio unitario mayor que cero.');
+      return;
+    }
+
     this.compradorSaving.set(true);
     this.actionError.set('');
     this.prService.patchComprador(id, {
@@ -311,6 +327,14 @@ export class PrDetailComponent implements OnInit {
     this.compradorLineas.update(arr => arr.map((l, idx) => idx === i ? { ...l, [field]: value } : l));
   }
 
+  updateCompradorLineaSubtotal(i: number, subtotal: number): void {
+    this.compradorLineas.update(arr => arr.map((l, idx) => {
+      if (idx !== i) return l;
+      const precioUnitario = l.cantidad > 0 ? +(subtotal / l.cantidad).toFixed(4) : 0;
+      return { ...l, precioUnitario };
+    }));
+  }
+
   detailId   = input<string | undefined>(undefined);
   isEmbedded = input<boolean>(false);
 
@@ -322,12 +346,46 @@ export class PrDetailComponent implements OnInit {
     this.prService.requests().find(r => r.id === this.resolvedId())
   );
 
-  canSubmit = computed(() => {
+  canSubmitReason = computed((): string | null => {
     const req = this.request();
-    if (!req) return false;
-    if (!req.presupuestos?.length) return true;
-    return (!!req.proveedorId || !!req.supplier) && req.totalAmount > 0;
+    if (!req) return null;
+    if (!req.proveedorId && !req.supplier) return 'Debes indicar un proveedor antes de enviar';
+    if (req.totalAmount <= 0) return 'Las partidas deben tener precio antes de enviar';
+    return null;
   });
+
+  canSubmit = computed(() => this.canSubmitReason() === null);
+
+  // ── Correos GIM ───────────────────────────────────────────────────────────
+  emailsGim        = signal<EmailGim[]>([]);
+  emailsGimLoading = signal(false);
+  emailsGimError   = signal(false);
+  emailExpandido   = signal<string | null>(null);
+
+  emailsGimConSrcdoc = computed(() =>
+    this.emailsGim().map(e => ({
+      ...e,
+      srcdoc: this.sanitizer.bypassSecurityTrustHtml(e.cuerpo) as SafeHtml,
+    }))
+  );
+
+  toggleEmail(messageId: string): void {
+    this.emailExpandido.update(id => id === messageId ? null : messageId);
+  }
+
+  abrirAdjunto(messageId: string, adjuntoId: string, nombre: string): void {
+    this.emailsGimSvc.getAdjunto(messageId, adjuntoId).subscribe({
+      next: blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nombre;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      },
+      error: err => this.actionError.set(err.error?.mensaje ?? err.error?.message ?? `Error ${err.status}`),
+    });
+  }
 
   // Approve / Reject
   showApproveModal = signal(false);
@@ -341,6 +399,16 @@ export class PrDetailComponent implements OnInit {
   deletingPresupuesto        = signal<string | null>(null);
   selectingPresupuesto       = signal<string | null>(null);
   presupuestoSelectedWarning = signal<string | null>(null);
+
+  presupuestoMismatchWarning = computed(() => {
+    const req = this.request();
+    if (!req?.presupuestos?.length) return null;
+    const sel = req.presupuestos.find(p => p.seleccionado);
+    if (!sel || sel.precio === req.totalAmount) return null;
+    const fmtSel   = sel.precio.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+    const fmtTotal = req.totalAmount.toLocaleString('es-ES', { style: 'currency', currency: 'EUR' });
+    return `El importe del presupuesto seleccionado (${fmtSel}) no coincide con el importe de la solicitud (${fmtTotal}). Debes modificar la solicitud de compra.`;
+  });
 
   // Add presupuesto modal
   showAddModal      = signal(false);
@@ -381,6 +449,19 @@ export class PrDetailComponent implements OnInit {
       const id = this.request()?.tipoDocumentoId;
       if (!id || this.tiposDocSvc.tiposDocumento().some(t => t.id === id)) return;
       untracked(() => this.tiposDocSvc.loadOne(id));
+    });
+
+    // Cargar correos GIM cuando la solicitud tiene gimId
+    effect(() => {
+      const gimId = this.request()?.gimId;
+      this.emailsGim.set([]);
+      this.emailsGimError.set(false);
+      if (!gimId) { this.emailsGimLoading.set(false); return; }
+      this.emailsGimLoading.set(true);
+      this.emailsGimSvc.getPorOferta(String(gimId)).subscribe({
+        next: emails => { this.emailsGim.set(emails); this.emailsGimLoading.set(false); },
+        error: () => { this.emailsGimLoading.set(false); this.emailsGimError.set(true); },
+      });
     });
 
     // Load the preview flujo when the request is a draft
