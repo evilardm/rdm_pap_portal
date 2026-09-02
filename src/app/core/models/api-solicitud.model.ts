@@ -37,6 +37,7 @@ export interface ApiSolicitud {
   solicitanteDepartamento?: string;
   gimId?: number;
   ofertaGim?: number;
+  oferta_gim?: number;
   formaPagoId?: string;
   formaPagoNombre?: string;
   inversion?: boolean;

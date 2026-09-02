@@ -35,13 +35,6 @@ const PRIORIDAD_TO_API: Record<string, string> = {
 };
 
 function mapSolicitud(s: ApiSolicitud): PurchaseRequest {
-  if ((s as any).compradorId || (s as any).CompradorId) {
-    console.log('[mapSolicitud comprador]', { compradorId: (s as any).compradorId, CompradorId: (s as any).CompradorId, compradorNombre: (s as any).compradorNombre, CompradorNombre: (s as any).CompradorNombre });
-  }
-  const raw = s as any;
-  if (raw.oferta_gim !== undefined || raw.ofertaGim !== undefined || raw.gimId !== undefined) {
-    console.log('[mapSolicitud] gim fields:', { oferta_gim: raw.oferta_gim, ofertaGim: raw.ofertaGim, gimId: raw.gimId });
-  }
   return {
     id:                    s.id,
     requestNumber:         s.numeroSolicitud,
@@ -69,7 +62,7 @@ function mapSolicitud(s: ApiSolicitud): PurchaseRequest {
     })),
     tipoDocumentoId:       s.tipoDocumentoId,
     tipoDocumentoNombre:   s.tipoDocumentoNombre,
-    gimId:                 (s as any).oferta_gim ?? s.ofertaGim ?? s.gimId,
+    gimId:                 s.oferta_gim ?? s.ofertaGim ?? s.gimId,
     inversion:             s.inversion,
     codigoInversion:       s.codigoInversion,
     compradorId:           s.compradorId,
@@ -304,6 +297,24 @@ export class PurchaseRequestService {
             ...r,
             presupuestos: (r.presupuestos ?? []).map(p => ({
               ...p, seleccionado: p.id === presupuestoId,
+            })),
+          };
+        }));
+      }),
+    );
+  }
+
+  deseleccionarPresupuesto(solicitudId: string, presupuestoId: string): Observable<void> {
+    return this.http.patch<void>(
+      `${API_BASE}/api/solicitudes/${solicitudId}/presupuestos/${presupuestoId}/deseleccionar`, {}
+    ).pipe(
+      tap(() => {
+        this._requests.update(list => list.map(r => {
+          if (r.id !== solicitudId) return r;
+          return {
+            ...r,
+            presupuestos: (r.presupuestos ?? []).map(p => ({
+              ...p, seleccionado: p.id === presupuestoId ? false : p.seleccionado,
             })),
           };
         }));

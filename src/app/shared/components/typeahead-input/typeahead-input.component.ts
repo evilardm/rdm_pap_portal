@@ -21,6 +21,7 @@ export class TypeaheadInputComponent implements ControlValueAccessor {
   @Input() placeholder = '';
   @Input() inputClass = '';
   @Input() hasError = false;
+  @Input() isDisabled = false;
 
   inputValue = signal('');
   open = signal(false);

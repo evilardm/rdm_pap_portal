@@ -403,13 +403,27 @@
                         </svg>
                         Seleccionado
                       </span>
+                      <button class="btn-deselect-pres"
+                        (click)="onDeseleccionarPresupuesto(p)"
+                        [disabled]="deseleccionandoPresupuesto() === p.id"
+                        title="Quitar selección">
+                        @if (deseleccionandoPresupuesto() === p.id) {
+                          <svg class="spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                          </svg>
+                        } @else {
+                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                          </svg>
+                        }
+                      </button>
                     } @else {
                       <button class="btn-select-pres"
                         (click)="onSelectPresupuesto(p)"
                         [disabled]="selectingPresupuesto() === p.id"
                         title="Usar este presupuesto">
                         @if (selectingPresupuesto() === p.id) {
-                          <svg class="spinner" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <svg class="spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M21 12a9 9 0 11-6.219-8.56"/>
                           </svg>
                         } @else {
@@ -422,23 +436,27 @@
                     }
                   </td>
                 }
-                <td class="pres-actions">
-                  <button class="btn-delete-pres"
-                    (click)="onDeletePresupuesto(p.id)"
-                    [disabled]="deletingPresupuesto() === p.id"
-                    title="Eliminar presupuesto">
-                    @if (deletingPresupuesto() === p.id) {
-                      <svg class="spinner" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 12a9 9 0 11-6.219-8.56"/>
-                      </svg>
-                    } @else {
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-                        <path d="M10 11v6M14 11v6"/>
-                      </svg>
-                    }
-                  </button>
-                </td>
+                @if (!p.seleccionado) {
+                  <td class="pres-actions">
+                    <button class="btn-delete-pres"
+                      (click)="onDeletePresupuesto(p.id)"
+                      [disabled]="deletingPresupuesto() === p.id"
+                      title="Eliminar presupuesto">
+                      @if (deletingPresupuesto() === p.id) {
+                        <svg class="spin" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M21 12a9 9 0 11-6.219-8.56"/>
+                        </svg>
+                      } @else {
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
+                          <path d="M10 11v6M14 11v6"/>
+                        </svg>
+                      }
+                    </button>
+                  </td>
+                } @else {
+                  <td></td>
+                }
               </tr>
             }
           </tbody>
@@ -715,12 +733,37 @@
 
       <div class="modal-field">
         <label class="field-label">Proveedor <span class="required">*</span></label>
-        <app-typeahead-input
-          [options]="proveedorOptions()"
-          placeholder="Buscar proveedor por nombre..."
-          inputClass="modal-input"
-          [ngModel]="modalProveedor()"
-          (ngModelChange)="onModalProveedorChange($event)" />
+        @if (gimProveedoresLoading()) {
+          <div class="gim-prov-loading">
+            <svg class="spin" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 11-6.219-8.56"/>
+            </svg>
+            Consultando oferta GIM {{ request()?.gimId }}...
+          </div>
+        } @else if (gimProveedoresError()) {
+          <div class="gim-prov-error">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            {{ gimProveedoresError() }}
+          </div>
+        } @else if (gimProveedores().length > 0) {
+          <select class="modal-input"
+            [ngModel]="modalProveedor()"
+            (ngModelChange)="onModalProveedorChange($event)">
+            <option value="">— Selecciona un proveedor —</option>
+            @for (p of gimProveedores(); track p.id) {
+              <option [value]="p.nombre">{{ p.nombre }}</option>
+            }
+          </select>
+        } @else {
+          <app-typeahead-input
+            [options]="proveedorOptions()"
+            placeholder="Buscar proveedor por nombre..."
+            inputClass="modal-input"
+            [ngModel]="modalProveedor()"
+            (ngModelChange)="onModalProveedorChange($event)" />
+        }
       </div>
 
       <div class="modal-row">
@@ -778,7 +821,7 @@
       <div class="modal-actions">
         <button class="btn-ghost" (click)="showAddModal.set(false)">Cancelar</button>
         <button class="btn-approve-confirm" (click)="savePresupuesto()"
-          [disabled]="!modalValid || modalSaving()">
+          [disabled]="!modalValid || modalSaving() || gimProveedoresLoading() || !!gimProveedoresError()">
           {{ modalSaving() ? 'Guardando...' : 'Guardar presupuesto' }}
         </button>
       </div>

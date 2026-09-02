@@ -83,6 +83,19 @@
         </label>
       </div>
 
+      <div class="form-field col-full">
+        <label class="toggle-row">
+          <div>
+            <div class="field-label" style="margin-bottom:2px">Comprador</div>
+            <div class="field-hint">El comprador puede gestionar presupuestos y datos de proveedor en las solicitudes de compra.</div>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" formControlName="esComprador" />
+            <span class="toggle-slider"></span>
+          </label>
+        </label>
+      </div>
+
       @if (isEdit()) {
         <div class="form-field col-full">
           <label class="toggle-row">

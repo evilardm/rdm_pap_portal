@@ -221,6 +221,7 @@
                     @case ('totalAmount') { {{ req.totalAmount | currency:'EUR':'symbol':'1.0-0' }} }
                     @case ('approverName') { {{ req.approverName || req.aprobadorNombre || '—' }} }
                     @case ('compradorName') { {{ req.compradorNombre || '—' }} }
+                    @case ('gimId') { {{ req.gimId || '—' }} }
                     @case ('ordenMantenimiento') { {{ req.ordenMantenimiento || '—' }} }
                     @case ('codigoInversion') { <span class="inv-label">{{ inversionLabel(req) }}</span> }
                     @case ('priority') { <app-status-badge [priority]="req.priority" /> }

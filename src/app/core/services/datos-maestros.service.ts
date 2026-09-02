@@ -62,7 +62,10 @@ export class DatosMaestrosService {
         const rest$ = Array.from({ length: first.totalPaginas - 1 }, (_, i) =>
           this.http.get<PaginatedResponse<T>>(url, {
             params: { pagina: String(i + 2), tamano: String(PAGE_SIZE) },
-          }).pipe(map(r => r.items))
+          }).pipe(
+            map(r => r.items),
+            catchError(() => of([] as T[])),
+          )
         );
         return forkJoin(rest$).pipe(map(pages => [...first.items, ...pages.flat()]));
       }),
@@ -228,6 +231,12 @@ export class DatosMaestrosService {
 
   deleteCliente(id: string): void {
     this._clientes.update(list => list.filter(c => c.id !== id));
+  }
+
+  getProveedoresPorOfertaGim(ofertaGim: string | number): Observable<{ id: string; nombre: string }[]> {
+    return this.http.get<{ id: string; nombre: string }[]>(
+      `${API_BASE}/api/proveedores/por-oferta-gim/${encodeURIComponent(String(ofertaGim))}`
+    );
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────────

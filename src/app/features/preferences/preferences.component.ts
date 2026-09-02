@@ -74,6 +74,7 @@ export class PreferencesComponent implements OnInit {
       nombre:       val.nombre!,
       departamento: val.departamento ?? '',
       esAdmin:      session.esAdmin,
+      esComprador:  session.esComprador ?? false,
       activo:       true,
       permisos:     session.modulos,
     }).subscribe({

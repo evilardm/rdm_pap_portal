@@ -12,6 +12,7 @@ export interface AuthSession {
   nombre: string;
   email: string;
   esAdmin: boolean;
+  esComprador?: boolean;
   modulos: ModuloPermiso[];
   expira: string;
 }

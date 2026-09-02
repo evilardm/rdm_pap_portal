@@ -52,6 +52,11 @@ export class PrDetailComponent implements OnInit {
     this.maestros.proveedores().map(p => ({ label: p.nombre, sublabel: p.id, value: p.nombre }))
   );
 
+  gimProveedores        = signal<{ id: string; nombre: string }[]>([]);
+  gimProveedoresLoading = signal(false);
+  gimProveedoresError   = signal('');
+
+
   private tipoDocumento = computed(() => {
     const req = this.request();
     if (!req?.tipoDocumentoId) return null;
@@ -398,6 +403,7 @@ export class PrDetailComponent implements OnInit {
 
   deletingPresupuesto        = signal<string | null>(null);
   selectingPresupuesto       = signal<string | null>(null);
+  deseleccionandoPresupuesto = signal<string | null>(null);
   presupuestoSelectedWarning = signal<string | null>(null);
 
   presupuestoMismatchWarning = computed(() => {
@@ -669,11 +675,34 @@ export class PrDetailComponent implements OnInit {
     this.modalFileName.set('');
     this.modalFileSize.set(0);
     this.modalFileData.set('');
+    this.gimProveedores.set([]);
+    this.gimProveedoresError.set('');
+
+    const gimId = this.request()?.gimId;
+    if (gimId) {
+      this.gimProveedoresLoading.set(true);
+      this.maestros.getProveedoresPorOfertaGim(gimId).subscribe({
+        next: items => {
+          this.gimProveedores.set(items);
+          if (!items.length) {
+            this.gimProveedoresError.set('No se ha encontrado ninguna oferta enviada.');
+          }
+          this.gimProveedoresLoading.set(false);
+        },
+        error: () => {
+          this.gimProveedoresError.set('No se ha encontrado ninguna oferta enviada.');
+          this.gimProveedoresLoading.set(false);
+        },
+      });
+    }
+
     this.showAddModal.set(true);
   }
 
   onModalProveedorChange(nombre: string): void {
     this.modalProveedor.set(nombre);
+    const gimMatch = this.gimProveedores().find(p => p.nombre === nombre);
+    if (gimMatch) { this.modalProveedorId.set(gimMatch.id); return; }
     const match = this.maestros.proveedores().find(p => p.nombre === nombre);
     this.modalProveedorId.set(match?.id ?? '');
   }
@@ -957,6 +986,17 @@ export class PrDetailComponent implements OnInit {
         `Ajusta los precios unitarios de las líneas manualmente.`
       );
     }
+  }
+
+  onDeseleccionarPresupuesto(p: Presupuesto): void {
+    this.deseleccionandoPresupuesto.set(p.id);
+    this.prService.deseleccionarPresupuesto(this.resolvedId(), p.id).subscribe({
+      next: () => this.deseleccionandoPresupuesto.set(null),
+      error: err => {
+        this.actionError.set(err.error?.mensaje ?? err.error?.message ?? `Error ${err.status}`);
+        this.deseleccionandoPresupuesto.set(null);
+      },
+    });
   }
 
   onDeletePresupuesto(presupuestoId: string): void {

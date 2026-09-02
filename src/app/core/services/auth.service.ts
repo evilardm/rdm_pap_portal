@@ -110,10 +110,11 @@ export class AuthService {
     return s.modulos.some(m => m.modulo === key && m.esAdminModulo);
   }
 
-  /** True when user only has read access to COMPRAS — acts as buyer (comprador) */
+  /** True when user is explicitly flagged as comprador, or only has read access to COMPRAS */
   isComprador(): boolean {
     const s = this.session.session();
     if (!s || s.esAdmin) return false;
+    if (s.esComprador) return true;
     return s.modulos.some(m =>
       m.modulo === 'COMPRAS' &&
       m.puedeLeer &&

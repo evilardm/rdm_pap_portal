@@ -16,7 +16,7 @@ interface Tab { id: string; label: string; type: 'detail' | 'create'; }
 
 interface ColDef { key: string; label: string; visible: boolean; width: number; }
 
-const COL_KEY = 'rdm-pr-cols-v2';
+const COL_KEY = 'rdm-pr-cols-v3';
 
 const DEFAULT_COLS: ColDef[] = [
   { key: 'requestNumber',       label: 'N° Solicitud', visible: true,  width: 130 },
@@ -27,6 +27,7 @@ const DEFAULT_COLS: ColDef[] = [
   { key: 'totalAmount',         label: 'Importe',       visible: true,  width: 100 },
   { key: 'approverName',        label: 'Aprobador',     visible: true,  width: 140 },
   { key: 'compradorName',        label: 'Comprador',     visible: true,  width: 140 },
+  { key: 'gimId',               label: 'Nº Oferta GIM', visible: true,  width: 130 },
   { key: 'ordenMantenimiento',  label: 'Orden Mant.',   visible: false, width: 110 },
   { key: 'codigoInversion',     label: 'Inversión',     visible: true,  width: 200 },
   { key: 'priority',            label: 'Prioridad',     visible: true,  width: 95  },
